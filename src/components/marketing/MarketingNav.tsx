@@ -33,7 +33,12 @@ export function MarketingNav() {
           <Link className="btn btn-outline-dark btn-sm nav-link mobile-keep" href="/login">
             Sign in
           </Link>
-          <Link className="btn btn-dark btn-sm" href="/contact">
+          <a
+            className="btn btn-dark btn-sm"
+            href="https://calendar.app.google/33oEagGSwW93hgWs9"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <svg
               width="12"
               height="12"
@@ -47,7 +52,7 @@ export function MarketingNav() {
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z" />
             </svg>
             Book a meeting
-          </Link>
+          </a>
         </div>
       </nav>
     </div>

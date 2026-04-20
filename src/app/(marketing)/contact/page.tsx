@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+const CALENDAR_URL = 'https://calendar.app.google/33oEagGSwW93hgWs9';
+const PRIMED_EMAIL = 'adwaiy@primedhealth.ai';
+
 const ROLES = [
   { v: 'admin', l: 'Administrator' },
   { v: 'surgeon', l: 'Surgeon' },
@@ -23,19 +26,16 @@ export default function ContactPage() {
 
   return (
     <>
-      <section className="page-hero wrap">
+      <section className="page-hero wrap anim-up">
         <span className="eyebrow">Let&apos;s talk</span>
         <h1>
-          Book a <span className="emph">30-minute</span> conversation with our team.
+          Book a <span className="emph">30-minute</span> conversation.
         </h1>
-        <p>
-          Tell us about your current pre-op pathway. We&apos;ll share where we think PrimedHealth
-          fits — and where it doesn&apos;t.
-        </p>
+        <p>Tell us about your current pre-op pathway. We&apos;ll share where we fit — and where we don&apos;t.</p>
       </section>
 
       <div className="wrap contact-grid">
-        <div className="form-card">
+        <div className="form-card anim-rise delay-100">
           {!submitted ? (
             <div className="form-body">
               <form onSubmit={handleSubmit} noValidate>
@@ -89,17 +89,13 @@ export default function ContactPage() {
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="f-note">
-                    What&apos;s the biggest bottleneck in your pre-op pathway?
-                  </label>
+                  <label htmlFor="f-note">Biggest bottleneck in your pre-op pathway?</label>
                   <textarea
                     className="textarea"
                     id="f-note"
                     placeholder="Anesthesia clearance routinely runs late. We lose 2–3 cases a week to same-day cancellations…"
                   />
-                  <div className="helper">
-                    Don&apos;t share PHI. We never see real patient data during early conversations.
-                  </div>
+                  <div className="helper">Don&apos;t share PHI in this form.</div>
                 </div>
                 <div
                   style={{
@@ -113,7 +109,7 @@ export default function ContactPage() {
                   <button className="btn btn-primary btn-lg" type="submit">
                     Send request
                   </button>
-                  <span className="t-small">We&apos;ll follow up within one business day.</span>
+                  <span className="t-small">Reply within one business day.</span>
                 </div>
               </form>
             </div>
@@ -137,8 +133,7 @@ export default function ContactPage() {
                 Thanks — we&apos;ll be in touch.
               </h2>
               <p style={{ color: 'var(--ink-500)', marginTop: '0.75rem' }}>
-                Someone from the team will reach out within one business day to schedule a 30-minute
-                walk-through.
+                We&apos;ll reach out within one business day.
               </p>
               <Link className="btn btn-outline btn-md" href="/" style={{ marginTop: '1.5rem' }}>
                 ← Back to home
@@ -147,19 +142,17 @@ export default function ContactPage() {
           )}
         </div>
 
-        <div className="info-card">
+        <div className="info-card anim-rise delay-200">
           <h3>Or reach us directly</h3>
-          <p
-            style={{
-              color: '#A3ADC4',
-              margin: '0 0 1rem',
-              fontSize: '0.9375rem',
-            }}
-          >
-            We&apos;d rather read one thoughtful email than sit through a generic pitch call.
+          <p style={{ color: '#A3ADC4', margin: '0 0 1rem', fontSize: '0.9375rem' }}>
+            One thoughtful email beats a generic pitch call.
           </p>
 
-          <div className="row">
+          <a
+            href={`mailto:${PRIMED_EMAIL}`}
+            className="row"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
             <div className="ic">
               <svg
                 width="16"
@@ -176,12 +169,18 @@ export default function ContactPage() {
               </svg>
             </div>
             <div>
-              hello@primedhealth.example
+              {PRIMED_EMAIL}
               <small>Product, partnerships, clinical advisor inquiries</small>
             </div>
-          </div>
+          </a>
 
-          <div className="row">
+          <a
+            href={CALENDAR_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="row"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
             <div className="ic">
               <svg
                 width="16"
@@ -193,14 +192,17 @@ export default function ContactPage() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z" />
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
             </div>
             <div>
-              (415) 555-0142
-              <small>Mon–Fri · 9am–5pm Pacific</small>
+              Book a 30-minute meeting
+              <small>Pick a slot on our team calendar</small>
             </div>
-          </div>
+          </a>
 
           <div className="row">
             <div className="ic">
@@ -219,14 +221,16 @@ export default function ContactPage() {
               </svg>
             </div>
             <div>
-              Security & compliance
+              Security &amp; compliance
               <small>HIPAA-aligned · SOC 2 Type I in progress</small>
             </div>
           </div>
 
-          <Link
+          <a
             className="btn btn-primary btn-md"
-            href="/login"
+            href={CALENDAR_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               marginTop: '1.5rem',
               width: '100%',
@@ -234,8 +238,8 @@ export default function ContactPage() {
               background: 'var(--primary-blue)',
             }}
           >
-            Try the interactive demo →
-          </Link>
+            Book a meeting →
+          </a>
         </div>
       </div>
     </>

@@ -56,10 +56,16 @@ export function MarketingFooter() {
             <h4>Contact</h4>
             <ul>
               <li>
-                <a href="mailto:hello@primedhealth.example">hello@primedhealth.example</a>
+                <a href="mailto:adwaiy@primedhealth.ai">adwaiy@primedhealth.ai</a>
               </li>
               <li>
-                <Link href="/contact">Book a meeting</Link>
+                <a
+                  href="https://calendar.app.google/33oEagGSwW93hgWs9"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Book a meeting
+                </a>
               </li>
             </ul>
           </div>

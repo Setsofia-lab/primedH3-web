@@ -1,30 +1,34 @@
 import Link from 'next/link';
 
+const CALENDAR_URL = 'https://calendar.app.google/33oEagGSwW93hgWs9';
+
+/* Roster — clinically ordered. Scheduling agent intentionally dropped
+   per product feedback (own complex domain, deferred offering). */
 const AGENTS = [
-  { num: '01', name: 'IntakeOrchestrator', role: 'Builds the required-workup plan', model: 'claude-sonnet' },
-  { num: '02', name: 'RiskScreeningAgent', role: 'NSQIP screen across 100+ conditions', model: 'claude-opus' },
-  { num: '03', name: 'AnesthesiaClearanceAgent', role: 'Drafts ASA / RCRI / STOP-BANG', model: 'claude-opus' },
-  { num: '04', name: 'ReferralAgent', role: 'Specialty referrals with context pack', model: 'claude-sonnet' },
-  { num: '05', name: 'SchedulingAgent', role: 'Finds slots across calendars', model: 'claude-haiku' },
-  { num: '06', name: 'PatientCommsAgent', role: 'Triaged patient messaging', model: 'claude-sonnet' },
-  { num: '07', name: 'PreHabAgent', role: 'Prescribes and tracks pre-hab', model: 'claude-haiku' },
-  { num: '08', name: 'DocumentationAgent', role: 'Drafts H&Ps, posts via Athena MCP', model: 'claude-sonnet' },
-  { num: '09', name: 'TaskTrackerAgent', role: 'Kanban mirror via Asana MCP', model: 'claude-haiku' },
-  { num: '10', name: 'ReadinessAgent', role: 'Continuous 0–100 readiness score', model: 'claude-sonnet' },
+  { num: '01', name: 'IntakeOrchestrator',       role: 'Builds the required-workup plan' },
+  { num: '02', name: 'AnesthesiaClearanceAgent', role: 'Drafts ASA / RCRI / STOP-BANG' },
+  { num: '03', name: 'DocumentationAgent',       role: 'Drafts H&Ps from Athena' },
+  { num: '04', name: 'ReferralAgent',            role: 'Specialty referrals with context pack' },
+  { num: '05', name: 'PatientCommsAgent',        role: 'Triaged patient messaging' },
+  { num: '06', name: 'ReadinessAgent',           role: 'Continuous 0–100 readiness score' },
+  { num: '07', name: 'PreHabAgent',              role: 'Prescribes and tracks pre-hab' },
+  { num: '08', name: 'TaskTrackerAgent',         role: 'Coordinator board with smart routing' },
+  { num: '09', name: 'RiskScreeningAgent',       role: 'Background risk screening' },
 ];
 
-const STATS = [
-  { n: '−50%', l: 'Same-day cancellations' },
-  { n: '−40%', l: 'Time to surgical readiness' },
-  { n: '−30%', l: 'Provider coordination time' },
-  { n: '4.5/5', l: 'Patient clarity score (target)' },
+/* Qualitative outcomes — no numeric stats until pilot data backs them up. */
+const OUTCOMES = [
+  { n: 'Fewer',   l: 'Same-day cancellations' },
+  { n: 'Faster',  l: 'Time to surgical readiness' },
+  { n: 'Less',    l: 'Coordination overhead' },
+  { n: 'Clearer', l: 'Patient experience' },
 ];
 
 const HERO_ROWS = [
-  { name: 'Alex Rivera', proc: 'Lap chole · Apr 28', avBg: '#FDECEC', avFg: '#B23232', initials: 'AR', badge: { v: 'badge-warning', t: 'Conditional' }, asa: 'ASA II', pct: 82, dashOff: 10.2 },
-  { name: 'Jordan Park', proc: 'Total knee · May 02', avBg: '#E7F8F1', avFg: '#047857', initials: 'JP', badge: { v: 'badge-success', t: 'Cleared' }, asa: 'ASA II', pct: 95, dashOff: 2.8 },
-  { name: 'Maya Khan', proc: 'Hernia repair · May 05', avBg: undefined, avFg: undefined, initials: 'MK', badge: { v: 'badge-info', t: 'Workup' }, asa: 'ASA I', pct: 60, dashOff: 22.6 },
-  { name: 'Daniel Shaw', proc: 'Tonsillectomy · May 10', avBg: 'var(--ink-900)', avFg: '#fff', initials: 'DS', badge: { v: 'badge-danger', t: 'Deferred' }, asa: 'ASA III', pct: 35, dashOff: 36.7 },
+  { name: 'Alex Rivera',  proc: 'Lap chole · Apr 28',     avBg: '#FDECEC',       avFg: '#B23232', initials: 'AR', badge: { v: 'badge-warning', t: 'Conditional' }, asa: 'ASA II',  pct: 82, dashOff: 10.2 },
+  { name: 'Jordan Park',  proc: 'Total knee · May 02',    avBg: '#E7F8F1',       avFg: '#047857', initials: 'JP', badge: { v: 'badge-success', t: 'Cleared' },     asa: 'ASA II',  pct: 95, dashOff: 2.8 },
+  { name: 'Maya Khan',    proc: 'Hernia repair · May 05', avBg: undefined,       avFg: undefined, initials: 'MK', badge: { v: 'badge-info',    t: 'Workup' },      asa: 'ASA I',   pct: 60, dashOff: 22.6 },
+  { name: 'Daniel Shaw',  proc: 'Tonsillectomy · May 10', avBg: 'var(--ink-900)', avFg: '#fff',   initials: 'DS', badge: { v: 'badge-danger',  t: 'Deferred' },    asa: 'ASA III', pct: 35, dashOff: 36.7 },
 ];
 
 export default function HomePage() {
@@ -33,31 +37,27 @@ export default function HomePage() {
       {/* HERO */}
       <section className="hero wrap">
         <div className="hero-grid">
-          <div>
+          <div className="anim-up">
             <span className="eyebrow">AI-orchestrated perioperative platform</span>
             <h1>
               Perioperative Coordination made <span className="emph">seamless</span>.
             </h1>
-            <div className="hero-actions">
-              <Link className="btn btn-primary btn-lg" href="/contact">
+            <div className="hero-actions anim-up delay-200">
+              <a className="btn btn-primary btn-lg" href={CALENDAR_URL} target="_blank" rel="noopener noreferrer">
                 Book a meeting
-              </Link>
+              </a>
               <Link className="btn btn-outline-dark btn-lg" href="/login">
                 See a demo →
               </Link>
             </div>
-            <div className="trust-row">
+            <div className="trust-row anim-fade delay-400">
               <span>HIPAA-ALIGNED</span>
-              <span className="divider" />
-              <span>ATHENA EHR</span>
-              <span className="divider" />
-              <span>AWS BEDROCK</span>
               <span className="divider" />
               <span>HUMAN-IN-THE-LOOP</span>
             </div>
           </div>
 
-          <div className="mockup-stack">
+          <div className="mockup-stack anim-rise delay-200">
             <div className="mockup">
               <div className="mock-head">
                 <span className="title">My cases · today</span>
@@ -68,7 +68,7 @@ export default function HomePage() {
               </div>
 
               {HERO_ROWS.map((r, i) => (
-                <div className="row-cells" key={i}>
+                <div className={`row-cells anim-up delay-${300 + i * 100}`} key={i}>
                   <div className="nm">
                     <span
                       className="avatar"
@@ -105,7 +105,7 @@ export default function HomePage() {
             </div>
 
             {/* Floating phone */}
-            <div className="phone phone-float">
+            <div className="phone phone-float anim-float-soft">
               <div className="notch" />
               <div className="greeting">Good morning, Alex</div>
               <div className="ring-big ring-wrap-phone">
@@ -155,8 +155,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="stats">
-          {STATS.map((s) => (
+        {/* Outcomes (qualitative — no numeric claims yet) */}
+        <div className="stats anim-up delay-500">
+          {OUTCOMES.map((s) => (
             <div className="stat" key={s.l}>
               <div className="n">{s.n}</div>
               <div className="l">{s.l}</div>
@@ -167,22 +168,22 @@ export default function HomePage() {
 
       {/* SERVICES */}
       <section className="section wrap" id="services">
-        <div className="services-intro">
+        <div className="services-intro anim-up">
           <div>
             <span className="eyebrow">What we do</span>
             <h2>
-              One workflow. <span className="emph">Ten</span> coordinated agents. Every decision, a
-              human click.
+              One workflow. <span className="emph">Multiple</span> coordinated agents. Every
+              decision, a human in the loop.
             </h2>
           </div>
         </div>
 
         <div className="tile-grid">
-          <div className="tile blue" style={{ gridColumn: 'span 6' }}>
+          <div className="tile blue anim-rise delay-100" style={{ gridColumn: 'span 6' }}>
             <div>
               <span className="tile-caption">01 · Intake</span>
               <h3 className="tile-title" style={{ marginTop: '0.75rem' }}>
-                Turn a procedure code into a complete{' '}
+                A procedure code becomes a complete{' '}
                 <span
                   className="emph"
                   style={{
@@ -194,127 +195,103 @@ export default function HomePage() {
                   }}
                 >
                   workup plan
-                </span>{' '}
-                in seconds.
+                </span>
+                .
               </h3>
             </div>
-            <p className="tile-body">History, procedure code, risk factors in — task list out.</p>
+            <p className="tile-body">History, code, risk factors in. Task list out.</p>
           </div>
 
-          <div className="tile" style={{ gridColumn: 'span 6' }}>
+          <div className="tile anim-rise delay-200" style={{ gridColumn: 'span 6' }}>
             <div>
-              <span className="tile-caption">02 · Risk</span>
+              <span className="tile-caption">02 · Clearance</span>
               <h3 className="tile-title" style={{ marginTop: '0.75rem' }}>
-                NSQIP-aligned screen across 100+ conditions.
+                The pre-anesthesia note is already drafted.
               </h3>
             </div>
-            <p className="tile-body">ASA, RCRI, STOP-BANG — continuously updated.</p>
+            <p className="tile-body">Clear, edit, or defer.</p>
           </div>
 
-          <div className="tile" style={{ gridColumn: 'span 4' }}>
+          <div className="tile anim-rise delay-300" style={{ gridColumn: 'span 4' }}>
             <div>
-              <span className="tile-caption">03 · Clearance</span>
+              <span className="tile-caption">03 · Referrals</span>
               <h3 className="tile-title" style={{ marginTop: '0.75rem' }}>
-                Pre-anesthesia note, drafted.
+                Referrals ship with context attached.
               </h3>
             </div>
-            <p className="tile-body">The note is already there. Clear, edit, or defer.</p>
+            <p className="tile-body">Chart, imaging, the question — packaged.</p>
           </div>
 
-          <div className="tile blue" style={{ gridColumn: 'span 4' }}>
+          <div className="tile blue anim-rise delay-400" style={{ gridColumn: 'span 4' }}>
             <div>
-              <span className="tile-caption">04 · Referrals</span>
+              <span className="tile-caption">04 · Patient</span>
               <h3 className="tile-title" style={{ marginTop: '0.75rem' }}>
-                Referrals ship with the context already attached.
+                A readiness ring patients understand.
               </h3>
             </div>
-            <p className="tile-body">Chart, imaging, and the question — packaged.</p>
+            <p className="tile-body">Tasks, messages, education, day-of.</p>
           </div>
 
-          <div className="tile dark" style={{ gridColumn: 'span 4' }}>
+          <div className="tile dark anim-rise delay-500" style={{ gridColumn: 'span 4' }}>
             <div>
-              <span className="tile-caption">05 · Scheduling</span>
+              <span className="tile-caption">05 · Coordinator</span>
               <h3 className="tile-title" style={{ marginTop: '0.75rem' }}>
-                Finds the slot everyone can keep.
+                A board your agents move.
               </h3>
             </div>
-            <p className="tile-body">Calendars, availability, preferences — one call.</p>
+            <p className="tile-body">Coordinators see only exceptions.</p>
           </div>
 
-          <div className="tile" style={{ gridColumn: 'span 6' }}>
+          <div className="tile anim-rise delay-500" style={{ gridColumn: 'span 6' }}>
             <div>
-              <span className="tile-caption">06 · Patient</span>
-              <h3 className="tile-title" style={{ marginTop: '0.75rem' }}>
-                A readiness ring patients actually understand.
-              </h3>
-            </div>
-            <p className="tile-body">Tasks, messages, education, uploads, day-of.</p>
-          </div>
-
-          <div className="tile blue" style={{ gridColumn: 'span 6' }}>
-            <div>
-              <span className="tile-caption">07 · Admin</span>
+              <span className="tile-caption">06 · Admin</span>
               <h3 className="tile-title" style={{ marginTop: '0.75rem' }}>
                 Every agent action, audited.
               </h3>
             </div>
-            <p className="tile-body">Live streams, prompt edits, model swaps, audit log.</p>
+            <p className="tile-body">Live streams, prompt edits, append-only audit log.</p>
+          </div>
+
+          <div className="tile blue anim-rise delay-700" style={{ gridColumn: 'span 6' }}>
+            <div>
+              <span className="tile-caption">07 · Risk</span>
+              <h3 className="tile-title" style={{ marginTop: '0.75rem' }}>
+                Continuous risk screening, in the background.
+              </h3>
+            </div>
+            <p className="tile-body">ASA, RCRI, STOP-BANG — recomputed on every change.</p>
           </div>
         </div>
       </section>
 
       {/* AGENTS */}
       <section className="wrap">
-        <div className="agents-section">
+        <div className="agents-section anim-rise">
           <div className="grid-bg" />
           <div style={{ position: 'relative', maxWidth: '64ch' }}>
             <span className="eyebrow" style={{ color: '#C9D8FF' }}>
               The roster
             </span>
-            <h2>Ten agents. One contract. Zero autonomous clinical decisions.</h2>
+            <h2>Multiple agents. One contract. Zero autonomous clinical decisions.</h2>
           </div>
           <div className="agents-list">
-            {AGENTS.map((a) => (
-              <div className="agent-row" key={a.num}>
+            {AGENTS.map((a, i) => (
+              <div
+                className={`agent-row no-model anim-up delay-${100 + (i % 5) * 100}`}
+                key={a.num}
+              >
                 <span className="num">{a.num}</span>
                 <div>
                   <div className="nm">{a.name}</div>
                   <div className="role">{a.role}</div>
                 </div>
-                <span className="model">{a.model}</span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* FLOW */}
-      <section className="section wrap">
-        <span className="eyebrow">How a case moves</span>
-        <h2>
-          From procedure code to operating table, in one <span className="emph">continuous</span>{' '}
-          workflow.
-        </h2>
-        <div className="flow">
-          <div className="step">
-            <span className="n">01 · REFERRAL</span>
-            <h3 className="serif">A case opens</h3>
-            <p>Surgeon picks a procedure. The workup plan drafts itself.</p>
-          </div>
-          <div className="step">
-            <span className="n">02 · WORKUP</span>
-            <h3 className="serif">Agents chase what&apos;s missing</h3>
-            <p>Risk, referrals, scheduling, docs — each slice logged and escalated.</p>
-          </div>
-          <div className="step">
-            <span className="n">03 · CLEARANCE</span>
-            <h3 className="serif">Humans sign off</h3>
-            <p>Anesthesia clears, surgeon clears. Readiness hits 100.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
+      {/* CTA band */}
       <section className="wrap">
         <div className="cta-band">
           <div>
@@ -324,13 +301,15 @@ export default function HomePage() {
             </h2>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <Link
+            <a
               className="btn btn-primary btn-lg"
-              href="/contact"
+              href={CALENDAR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{ justifyContent: 'center' }}
             >
               Book a meeting
-            </Link>
+            </a>
             <Link
               className="btn btn-outline-dark btn-lg"
               href="/login"

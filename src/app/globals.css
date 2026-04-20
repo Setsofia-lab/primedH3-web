@@ -218,6 +218,57 @@ h5 {
   border-radius: var(--radius-sm);
 }
 
+/* ---------- Motion: entrance + ambient (CSS only, no JS) ---------- */
+@keyframes ph-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ph-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ph-rise {
+  from { opacity: 0; transform: translateY(24px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ph-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+@keyframes ph-ring-fill {
+  from { stroke-dashoffset: 326.7; }
+}
+@keyframes ph-mini-ring {
+  from { stroke-dashoffset: 56.5; }
+}
+
+.anim-up         { animation: ph-fade-up 0.6s ease-out both; }
+.anim-fade       { animation: ph-fade-in 0.7s ease-out both; }
+.anim-rise       { animation: ph-rise   0.7s cubic-bezier(.2,.7,.2,1) both; }
+.anim-float-soft { animation: ph-float  6s ease-in-out infinite; }
+.delay-50  { animation-delay:  50ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-250 { animation-delay: 250ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+.delay-700 { animation-delay: 700ms; }
+
+/* Animated mini ring on the hero mockup rows */
+.mockup .mini-ring circle.fill { animation: ph-mini-ring 1.2s cubic-bezier(.4,0,.2,1) both; animation-delay: 350ms; }
+/* Big phone ring */
+.phone .ring-big circle.fill { animation: ph-ring-fill 1.4s cubic-bezier(.4,0,.2,1) both; animation-delay: 500ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-up, .anim-fade, .anim-rise, .anim-float-soft,
+  .mockup .mini-ring circle.fill, .phone .ring-big circle.fill {
+    animation: none;
+  }
+}
+
 /* ---------- Ported component + surface CSS ---------- */
 @import '../styles/components.css';
 @import '../styles/marketing.css';
