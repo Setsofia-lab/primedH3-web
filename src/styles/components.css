@@ -1,0 +1,201 @@
+/* ============================================================
+   PrimedHealth — Component primitives
+   These mirror the shadcn/ui surface Phase 1 uses. Every
+   component uses tokens from tokens.css.
+   ============================================================ */
+
+/* ---------- Button ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  line-height: 1;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+  text-decoration: none;
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.btn:active { transform: translateY(0.5px); }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+
+.btn-sm  { padding: 0.5rem 0.875rem;  font-size: 0.8125rem; }
+.btn-md  { padding: 0.75rem 1.25rem;   font-size: 0.9375rem; }
+.btn-lg  { padding: 0.9375rem 1.5rem;  font-size: 1rem; }
+
+/* Variants */
+.btn-primary {
+  background: var(--accent-indigo);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--accent-indigo-600); }
+
+.btn-dark {
+  background: var(--ink-900);
+  color: #fff;
+}
+.btn-dark:hover { background: #000; }
+
+.btn-outline-dark {
+  background: transparent;
+  color: var(--ink-900);
+  border-color: var(--ink-900);
+}
+.btn-outline-dark:hover { background: var(--ink-900); color: #fff; }
+
+.btn-outline {
+  background: var(--surface-0);
+  color: var(--ink-900);
+  border-color: var(--border);
+}
+.btn-outline:hover { border-color: var(--ink-300); background: var(--surface-50); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-700);
+}
+.btn-ghost:hover { background: var(--surface-100); }
+
+.btn-link {
+  background: transparent;
+  color: var(--primary-blue);
+  padding-left: 0; padding-right: 0;
+  border-radius: 0;
+}
+.btn-link:hover { color: var(--primary-blue-600); text-decoration: underline; }
+
+/* ---------- Input ---------- */
+.input, .textarea, .select {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--ink-900);
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.625rem 0.875rem;
+  width: 100%;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.input::placeholder, .textarea::placeholder { color: var(--ink-300); }
+.input:focus, .textarea:focus, .select:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.textarea { min-height: 96px; resize: vertical; }
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+.card-blue { background: var(--card-blue-50); border-color: transparent; }
+
+/* ---------- Badge ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-100);
+  color: var(--ink-700);
+  border: 1px solid transparent;
+  line-height: 1.25;
+}
+.badge-ai {
+  background: var(--primary-blue-50);
+  color: var(--primary-blue-600);
+}
+.badge-ai::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(75,107,239,0.15);
+}
+.badge-success { background: #E7F8F1; color: #047857; }
+.badge-warning { background: #FEF4E2; color: #A35E00; }
+.badge-danger  { background: #FDECEC; color: #B42323; }
+.badge-info    { background: #E8F1FE; color: #1E4AC7; }
+.badge-neutral { background: var(--surface-100); color: var(--ink-500); }
+
+/* ---------- Avatar ---------- */
+.avatar {
+  width: 2rem; height: 2rem;
+  border-radius: 999px;
+  background: var(--card-blue-50);
+  color: var(--primary-blue-600);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+/* ---------- Pill nav (floating) ---------- */
+.pill-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+/* ---------- Progress ring (readiness) ---------- */
+.ring-wrap { position: relative; display: inline-block; }
+.ring-wrap .ring-label {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-feature-settings: var(--fraunces-features);
+}
+
+/* ---------- Divider ---------- */
+.hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+/* ---------- Utility ---------- */
+.stack { display: flex; flex-direction: column; }
+.row   { display: flex; flex-direction: row; }
+.grow  { flex: 1; }
+.muted { color: var(--ink-500); }
+.subtle{ color: var(--ink-400); }
+
+/* Swatch tile for design-system docs */
+.swatch {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: var(--surface-0);
+}
+.swatch .chip {
+  height: 96px;
+  display: block;
+}
+.swatch .meta {
+  padding: 0.625rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.swatch .meta b { color: var(--ink-900); font-weight: 600; font-family: var(--font-body); }

@@ -3,41 +3,43 @@
 /* ============================================================
    PrimedHealth — Design Tokens
    Source of truth: CONSTITUTION.md §2 + design-system/tokens.css
-   Mirrored from the static prototype 1:1.
+   Mirrors the static prototype 1:1 (variables NOT renamed so the
+   ported CSS files in /src/styles/* keep working unchanged).
    ============================================================ */
 
 :root {
   /* ---------- Brand ---------- */
-  --color-primary-blue: #4b6bef;
-  --color-primary-blue-600: #3b55d9;
-  --color-primary-blue-50: #eef2fe;
+  --primary-blue: #4b6bef;
+  --primary-blue-600: #3b55d9;
+  --primary-blue-50: #eef2fe;
 
-  --color-accent-indigo: #4f46e5;
-  --color-accent-indigo-600: #4338ca;
+  --accent-indigo: #4f46e5;
+  --accent-indigo-600: #4338ca;
 
   /* ---------- Ink (text) ---------- */
-  --color-ink-900: #0a1628;
-  --color-ink-700: #1f2a44;
-  --color-ink-500: #4a5878;
-  --color-ink-400: #6b7895;
-  --color-ink-300: #a3adc4;
+  --ink-900: #0a1628;
+  --ink-700: #1f2a44;
+  --ink-500: #4a5878;
+  --ink-400: #6b7895;
+  --ink-300: #a3adc4;
 
   /* ---------- Surfaces ---------- */
-  --color-surface-0: #ffffff;
-  --color-surface-50: #f5f7fe;
-  --color-surface-100: #eef1fa;
-  --color-card-blue-50: #dce7ff;
-  --color-card-blue-100: #c9d8ff;
+  --surface-0: #ffffff;
+  --surface-50: #f5f7fe;
+  --surface-100: #eef1fa;
+  --surface-200: #d8def0;
+  --card-blue-50: #dce7ff;
+  --card-blue-100: #c9d8ff;
 
   /* ---------- Status ---------- */
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
 
   /* ---------- Lines ---------- */
-  --color-border: #e4e8f5;
-  --color-focus-ring: #4b6bef66;
+  --border: #e4e8f5;
+  --focus-ring: #4b6bef66;
 
   /* ---------- Radii ---------- */
   --radius-sm: 6px;
@@ -59,42 +61,42 @@
   --fraunces-features: 'ss01', 'cv11';
 }
 
-/* Map our tokens into Tailwind v4's @theme so utilities like
-   bg-primary-blue, text-ink-900, font-display etc. work. */
+/* Map our tokens into Tailwind v4 @theme so utilities like
+   bg-primary-blue, text-ink-900, font-display, rounded-xl etc. work. */
 @theme inline {
-  --color-primary-blue: var(--color-primary-blue);
-  --color-primary-blue-600: var(--color-primary-blue-600);
-  --color-primary-blue-50: var(--color-primary-blue-50);
-  --color-accent-indigo: var(--color-accent-indigo);
-  --color-accent-indigo-600: var(--color-accent-indigo-600);
-  --color-ink-900: var(--color-ink-900);
-  --color-ink-700: var(--color-ink-700);
-  --color-ink-500: var(--color-ink-500);
-  --color-ink-400: var(--color-ink-400);
-  --color-ink-300: var(--color-ink-300);
-  --color-surface-0: var(--color-surface-0);
-  --color-surface-50: var(--color-surface-50);
-  --color-surface-100: var(--color-surface-100);
-  --color-card-blue-50: var(--color-card-blue-50);
-  --color-card-blue-100: var(--color-card-blue-100);
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-danger: var(--color-danger);
-  --color-info: var(--color-info);
-  --color-border: var(--color-border);
+  --color-primary-blue: #4b6bef;
+  --color-primary-blue-600: #3b55d9;
+  --color-primary-blue-50: #eef2fe;
+  --color-accent-indigo: #4f46e5;
+  --color-accent-indigo-600: #4338ca;
+  --color-ink-900: #0a1628;
+  --color-ink-700: #1f2a44;
+  --color-ink-500: #4a5878;
+  --color-ink-400: #6b7895;
+  --color-ink-300: #a3adc4;
+  --color-surface-0: #ffffff;
+  --color-surface-50: #f5f7fe;
+  --color-surface-100: #eef1fa;
+  --color-card-blue-50: #dce7ff;
+  --color-card-blue-100: #c9d8ff;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --color-border: #e4e8f5;
 
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
 
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: var(--radius-xl);
-  --radius-2xl: var(--radius-2xl);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
 
-  --shadow-sm: var(--shadow-sm);
-  --shadow-lg: var(--shadow-lg);
+  --shadow-sm: 0 1px 2px rgba(10, 22, 40, 0.04);
+  --shadow-lg: 0 8px 24px rgba(10, 22, 40, 0.08);
 }
 
 /* ---------- Base ---------- */
@@ -111,8 +113,8 @@ body {
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.5;
-  color: var(--color-ink-700);
-  background: var(--color-surface-50);
+  color: var(--ink-700);
+  background: var(--surface-50);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -125,7 +127,7 @@ h4,
 h5 {
   font-family: var(--font-display);
   font-feature-settings: var(--fraunces-features);
-  color: var(--color-ink-900);
+  color: var(--ink-900);
   letter-spacing: -0.01em;
   font-weight: 400;
   margin: 0;
@@ -145,7 +147,7 @@ h5 {
   font-style: italic;
   font-family: var(--font-display);
   text-decoration: underline;
-  text-decoration-color: var(--color-primary-blue);
+  text-decoration-color: var(--primary-blue);
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
@@ -185,12 +187,12 @@ h5 {
 .t-small {
   font-size: 0.875rem;
   line-height: 1.45;
-  color: var(--color-ink-500);
+  color: var(--ink-500);
 }
 .t-caption {
   font-size: 0.75rem;
   line-height: 1.35;
-  color: var(--color-ink-400);
+  color: var(--ink-400);
   letter-spacing: 0.02em;
 }
 
@@ -211,7 +213,13 @@ h5 {
 
 /* ---------- Focus ---------- */
 :where(button, a, input, textarea, select, [tabindex]):focus-visible {
-  outline: 3px solid var(--color-focus-ring);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+/* ---------- Ported component + surface CSS ---------- */
+@import '../styles/components.css';
+@import '../styles/marketing.css';
+@import '../styles/shell.css';
+@import '../styles/patient-pwa.css';
