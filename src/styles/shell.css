@@ -372,3 +372,36 @@ html, body { background: var(--surface-50); color: var(--ink-700); font-family: 
 .dir-card .nm { font-weight:500; color:var(--ink-900); font-size:0.9375rem; }
 .dir-card .sub { color:var(--ink-500); font-size:0.8125rem; margin-top:0.125rem; }
 .dir-card .sub .dot { color:var(--ink-300); margin:0 0.375rem; }
+
+/* ---------- Admin dashboard ---------- */
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:2rem; }
+@media (max-width:900px){ .kpi-grid{grid-template-columns:1fr 1fr;} }
+.kpi { background:var(--surface-0); border:1px solid var(--border); border-radius:var(--radius-2xl); padding:1.25rem; }
+.kpi .lbl { font-family:var(--font-mono); font-size:0.6875rem; color:var(--ink-400); letter-spacing:0.08em; text-transform:uppercase; }
+.kpi .val { font-family:var(--font-display); font-size:2.25rem; font-weight:400; font-feature-settings:var(--fraunces-features); letter-spacing:-0.015em; color:var(--ink-900); margin:0.5rem 0 0.25rem; line-height:1; }
+.kpi .delta { font-size:0.8125rem; color:var(--success); font-weight:500; }
+.kpi .delta.down { color:var(--ink-500); }
+.kpi.blue { background:var(--card-blue-50); border-color:transparent; }
+
+.dash-grid { display:grid; grid-template-columns:1.4fr 1fr; gap:1rem; }
+@media (max-width:1080px){ .dash-grid{grid-template-columns:1fr;} }
+
+.stream { display:flex; flex-direction:column; }
+.stream .ev { display:grid; grid-template-columns:auto 1fr auto; gap:0.75rem; padding:0.75rem 0; border-bottom:1px solid var(--border); align-items:center; }
+.stream .ev:last-child { border-bottom:none; }
+.stream .agent-tag { font-family:var(--font-mono); font-size:0.6875rem; padding:0.25rem 0.5rem; border-radius:var(--radius-sm); background:var(--primary-blue-50); color:var(--primary-blue); letter-spacing:0.03em; }
+.stream .ev .msg { color:var(--ink-700); font-size:0.875rem; line-height:1.45; }
+.stream .ev .msg strong { color:var(--ink-900); font-weight:600; }
+.stream .ev .time { font-family:var(--font-mono); font-size:0.6875rem; color:var(--ink-400); }
+
+.agents-health { display:flex; flex-direction:column; }
+.ah-row { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:0.75rem; padding:0.75rem 0; border-bottom:1px solid var(--border); }
+.ah-row:last-child { border-bottom:none; }
+.ah-row .nm { font-weight:500; font-size:0.875rem; color:var(--ink-900); }
+.ah-row .sub { font-size:0.75rem; color:var(--ink-500); font-family:var(--font-mono); }
+.ah-row .pill { font-family:var(--font-mono); font-size:0.6875rem; padding:0.2rem 0.5rem; border-radius:var(--radius-full); background:rgba(16,185,129,0.12); color:#047857; }
+.ah-row .runs { font-family:var(--font-mono); font-size:0.75rem; color:var(--ink-500); }
+
+.live-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--success); margin-right:0.375rem; animation: ph-live-pulse 2s ease-in-out infinite; }
+@keyframes ph-live-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.card-head .live { font-family:var(--font-mono); font-size:0.6875rem; color:var(--ink-500); }
