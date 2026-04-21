@@ -7,6 +7,13 @@ import { CherryPetals } from '@/components/landing/CherryPetals';
 import { GlassInfoCard } from '@/components/landing/GlassInfoCard';
 import { FeatureRail } from '@/components/landing/FeatureRail';
 import { HeroTitle } from '@/components/landing/HeroTitle';
+import {
+  IntakePreview,
+  ClearancePreview,
+  CoordinatorPreview,
+  PatientPreview,
+  AdminPreview,
+} from '@/components/landing/WorkflowPreviews';
 
 const CALENDAR_URL = 'https://calendar.app.google/33oEagGSwW93hgWs9';
 
@@ -24,12 +31,16 @@ const AGENTS = [
   { num: '09', name: 'RiskScreeningAgent',       role: 'Background risk screening' },
 ];
 
-const WORKFLOW_CARDS = [
-  { n: '01 · INTAKE',       t: 'Open a case, get a plan',     d: 'Procedure code + history in. Required workup out, with risk flags surfaced before first consult.' },
-  { n: '02 · CLEARANCE',    t: 'Pre-anesthesia, drafted',     d: 'ASA / RCRI / STOP-BANG computed. Cleared, conditional, or deferred in one click.' },
-  { n: '03 · COORDINATOR',  t: 'A board your agents move',    d: 'Cards slide from Referral to Ready. Coordinators see only what needs a human.' },
-  { n: '04 · PATIENT',      t: 'One ring patients understand', d: 'Tasks, messages, education, pre-op kit — one app, installable.' },
-  { n: '05 · ADMIN',        t: 'Every action, audited',       d: 'Live streams, prompt edits, append-only audit log, token cost and latency per run.' },
+const WORKFLOW_CARDS: Array<{
+  n: string; t: string; d: string;
+  Preview: () => React.ReactElement;
+  demoHref: string;
+}> = [
+  { n: '01 · INTAKE',      t: 'Open a case, get a plan',      d: 'Procedure code + history in. Required workup out, with risk flags surfaced before first consult.', Preview: IntakePreview,      demoHref: '/app/surgeon/new' },
+  { n: '02 · CLEARANCE',   t: 'Pre-anesthesia, drafted',      d: 'ASA / RCRI / STOP-BANG computed. Cleared, conditional, or deferred in one click.',                  Preview: ClearancePreview,   demoHref: '/app/anesthesia' },
+  { n: '03 · COORDINATOR', t: 'A board your agents move',     d: 'Cards slide from Referral to Ready. Coordinators see only what needs a human.',                    Preview: CoordinatorPreview, demoHref: '/app/coordinator' },
+  { n: '04 · PATIENT',     t: 'One ring patients understand', d: 'Tasks, messages, education, pre-op kit — one app, installable.',                                   Preview: PatientPreview,     demoHref: '/app/patient' },
+  { n: '05 · ADMIN',       t: 'Every action, audited',        d: 'Live streams, prompt edits, append-only audit log, token cost and latency per run.',                Preview: AdminPreview,       demoHref: '/app/admin' },
 ];
 
 export default function HomePage() {
@@ -84,21 +95,21 @@ export default function HomePage() {
             One workflow. <span className="emph">Multiple</span> coordinated agents.
           </h2>
           <div className="workflow-rail">
-            {WORKFLOW_CARDS.map((c) => (
-              <div className="card" key={c.n}>
-                <div className="caption">
-                  <span className="n">{c.n}</span>
-                  <span className="t">{c.t}</span>
-                </div>
-                <div className="shot">
-                  <span style={{ color: 'var(--ink-400)', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
-                    preview · /app{' '}
-                    <Link href="/login" style={{ color: 'var(--primary-blue)' }}>open demo</Link>
-                  </span>
-                </div>
-                <p>{c.d}</p>
-              </div>
-            ))}
+            {WORKFLOW_CARDS.map((c) => {
+              const Preview = c.Preview;
+              return (
+                <Link href={c.demoHref} className="card" key={c.n}>
+                  <div className="caption">
+                    <span className="n">{c.n}</span>
+                    <span className="t">{c.t}</span>
+                  </div>
+                  <div className="shot">
+                    <Preview />
+                  </div>
+                  <p>{c.d}</p>
+                </Link>
+              );
+            })}
           </div>
         </section>
 
