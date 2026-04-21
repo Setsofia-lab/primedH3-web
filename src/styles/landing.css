@@ -244,16 +244,15 @@
 .feature-rail h4 {
   font-family: var(--font-display); font-feature-settings: var(--fraunces-features);
   font-weight: 500; font-size: 1rem; line-height: 1.25;
-  margin: 0.375rem 0 0.875rem;
+  margin: 0.375rem 0 1.25rem;
   color: var(--ink-900);
   letter-spacing: -0.01em;
   max-width: 22ch;
 }
 .feature-rail .row {
-  display: grid; grid-template-columns: 26px 1fr; gap: 0.625rem;
+  display: grid; grid-template-columns: 30px 1fr; gap: 0.75rem;
   align-items: center;
-  padding: 0.375rem 0.25rem;
-  margin: -0.125rem 0;
+  padding: 0.5rem 0.5rem;
   font-size: 0.8125rem;
   color: var(--ink-900);
   font-family: inherit;
@@ -265,15 +264,20 @@
   transition: transform 140ms ease, background 140ms ease;
   width: 100%;
 }
+.feature-rail .row + .row {
+  margin-top: 0.125rem;
+  border-top: 1px solid rgba(10,22,40,0.05);
+  padding-top: 0.625rem;
+}
 .feature-rail .row .ic {
-  width: 26px; height: 26px; border-radius: 8px;
+  width: 30px; height: 30px; border-radius: 9px;
   background: rgba(75,107,239,0.12);
   color: var(--primary-blue);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.feature-rail .row .nm { font-weight: 500; color: var(--ink-900); }
-.feature-rail .row .sub { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-500); margin-top: 1px; }
+.feature-rail .row .nm { font-weight: 500; color: var(--ink-900); line-height: 1.2; }
+.feature-rail .row .sub { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-500); margin-top: 3px; }
 .feature-rail .row:hover { background: rgba(75,107,239,0.08); transform: translateX(-1px); }
 .feature-rail .row:hover .ic { background: rgba(75,107,239,0.22); }
 .feature-rail .row:focus-visible { background: rgba(75,107,239,0.12); outline: none; }
