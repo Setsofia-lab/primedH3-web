@@ -25,10 +25,7 @@ export function MarketingFooter() {
             <h4>Product</h4>
             <ul>
               <li>
-                <Link href="/services">Services</Link>
-              </li>
-              <li>
-                <Link href="/problem">The problem</Link>
+                <Link href="/innovation">Innovation</Link>
               </li>
               <li>
                 <Link href="/login">Sign in</Link>
@@ -42,7 +39,7 @@ export function MarketingFooter() {
             <h4>Company</h4>
             <ul>
               <li>
-                <a href="#">About</a>
+                <Link href="/about">About</Link>
               </li>
               <li>
                 <a href="#">Security</a>
