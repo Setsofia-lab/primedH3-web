@@ -1,0 +1,50 @@
+[
+  {
+    "Notification": {
+      "NotificationType": "ACTUAL",
+      "ComparisonOperator": "GREATER_THAN",
+      "Threshold": 50,
+      "ThresholdType": "PERCENTAGE",
+      "NotificationState": "ALARM"
+    },
+    "Subscribers": [
+      { "SubscriptionType": "EMAIL", "Address": "setsofiaeli@gmail.com" }
+    ]
+  },
+  {
+    "Notification": {
+      "NotificationType": "ACTUAL",
+      "ComparisonOperator": "GREATER_THAN",
+      "Threshold": 80,
+      "ThresholdType": "PERCENTAGE",
+      "NotificationState": "ALARM"
+    },
+    "Subscribers": [
+      { "SubscriptionType": "EMAIL", "Address": "setsofiaeli@gmail.com" }
+    ]
+  },
+  {
+    "Notification": {
+      "NotificationType": "ACTUAL",
+      "ComparisonOperator": "GREATER_THAN",
+      "Threshold": 100,
+      "ThresholdType": "PERCENTAGE",
+      "NotificationState": "ALARM"
+    },
+    "Subscribers": [
+      { "SubscriptionType": "EMAIL", "Address": "setsofiaeli@gmail.com" }
+    ]
+  },
+  {
+    "Notification": {
+      "NotificationType": "FORECASTED",
+      "ComparisonOperator": "GREATER_THAN",
+      "Threshold": 100,
+      "ThresholdType": "PERCENTAGE",
+      "NotificationState": "ALARM"
+    },
+    "Subscribers": [
+      { "SubscriptionType": "EMAIL", "Address": "setsofiaeli@gmail.com" }
+    ]
+  }
+]

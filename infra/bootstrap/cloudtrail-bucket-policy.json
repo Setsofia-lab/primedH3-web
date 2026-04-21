@@ -1,0 +1,54 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AWSCloudTrailAclCheck",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudtrail.amazonaws.com" },
+      "Action": "s3:GetBucketAcl",
+      "Resource": "arn:aws:s3:::primedhealth-cloudtrail-logs-613649367863",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceArn": "arn:aws:cloudtrail:us-east-1:613649367863:trail/primedhealth-org-trail"
+        }
+      }
+    },
+    {
+      "Sid": "AWSCloudTrailWriteMgmt",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudtrail.amazonaws.com" },
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::primedhealth-cloudtrail-logs-613649367863/AWSLogs/613649367863/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:x-amz-acl": "bucket-owner-full-control",
+          "aws:SourceArn": "arn:aws:cloudtrail:us-east-1:613649367863:trail/primedhealth-org-trail"
+        }
+      }
+    },
+    {
+      "Sid": "AWSCloudTrailWriteOrg",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudtrail.amazonaws.com" },
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::primedhealth-cloudtrail-logs-613649367863/AWSLogs/o-8gwr756a58/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:x-amz-acl": "bucket-owner-full-control",
+          "aws:SourceArn": "arn:aws:cloudtrail:us-east-1:613649367863:trail/primedhealth-org-trail"
+        }
+      }
+    },
+    {
+      "Sid": "DenyUnencryptedTransport",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::primedhealth-cloudtrail-logs-613649367863",
+        "arn:aws:s3:::primedhealth-cloudtrail-logs-613649367863/*"
+      ],
+      "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+    }
+  ]
+}

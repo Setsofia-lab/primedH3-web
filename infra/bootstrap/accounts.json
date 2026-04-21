@@ -1,0 +1,97 @@
+{
+  "organization": {
+    "id": "o-8gwr756a58",
+    "arn": "arn:aws:organizations::613649367863:organization/o-8gwr756a58",
+    "managementAccountId": "613649367863",
+    "managementAccountEmail": "adwaiy@primedhealth.ai"
+  },
+  "accounts": {
+    "management": {
+      "id": "613649367863",
+      "name": "PrimedHealth Mgmt",
+      "email": "adwaiy@primedhealth.ai",
+      "role": "Billing + Organizations + Identity Center. No workloads."
+    },
+    "dev": {
+      "id": "984126996145",
+      "name": "PrimedHealth Dev",
+      "email": "setsofiaeli+primedhealth-dev@gmail.com",
+      "role": "Dev + staging workloads. Athena Preview.",
+      "bootstrapRole": "arn:aws:iam::984126996145:role/OrganizationAccountAccessRole"
+    },
+    "prod": {
+      "id": "492084584502",
+      "name": "PrimedHealth Prod",
+      "email": "sdean5501+primedhealth-prod@gmail.com",
+      "role": "Production workloads. Athena Production. Real PHI.",
+      "bootstrapRole": "arn:aws:iam::492084584502:role/OrganizationAccountAccessRole"
+    }
+  },
+  "region": "us-east-1",
+  "cloudtrail": {
+    "trailName": "primedhealth-org-trail",
+    "trailArn": "arn:aws:cloudtrail:us-east-1:613649367863:trail/primedhealth-org-trail",
+    "s3Bucket": "primedhealth-cloudtrail-logs-613649367863",
+    "kmsKeyArn": "arn:aws:kms:us-east-1:613649367863:key/f01b6ad2-bf47-4da7-b09a-b008387fa86e",
+    "kmsKeyAlias": "alias/primedhealth-cloudtrail",
+    "isOrganizationTrail": true
+  },
+  "budget": {
+    "name": "primedhealth-monthly-cap",
+    "amountUsd": 150,
+    "alertEmail": "setsofiaeli@gmail.com"
+  },
+  "cdkBootstrap": {
+    "qualifier": "primedh",
+    "toolkitStackName": "CDKToolkit",
+    "dev": {
+      "status": "CREATE_COMPLETE",
+      "account": "984126996145",
+      "region": "us-east-1"
+    },
+    "prod": {
+      "status": "CREATE_COMPLETE",
+      "account": "492084584502",
+      "region": "us-east-1"
+    }
+  },
+  "identityCenter": {
+    "instanceArn": "arn:aws:sso:::instance/ssoins-722396bb07230ad8",
+    "identityStoreId": "d-90660b6792",
+    "startUrl": "https://d-90660b6792.awsapps.com/start",
+    "region": "us-east-1",
+    "permissionSets": {
+      "AdministratorAccess-ForHumans": {
+        "arn": "arn:aws:sso:::permissionSet/ssoins-722396bb07230ad8/ps-7ec92e2b4253eca0",
+        "sessionDuration": "PT8H",
+        "managedPolicies": ["arn:aws:iam::aws:policy/AdministratorAccess"],
+        "assignedTo": ["Samuel → Mgmt, Dev, Prod"]
+      },
+      "ClaudeCodeDeployer-Dev": {
+        "arn": "arn:aws:sso:::permissionSet/ssoins-722396bb07230ad8/ps-53e91839ebb30181",
+        "sessionDuration": "PT4H",
+        "managedPolicies": ["arn:aws:iam::aws:policy/AdministratorAccess"],
+        "assignedTo": ["Claude Code → Dev"]
+      },
+      "ClaudeCodeReadOnly-Prod": {
+        "arn": "arn:aws:sso:::permissionSet/ssoins-722396bb07230ad8/ps-6f9bde873898e677",
+        "sessionDuration": "PT4H",
+        "managedPolicies": ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
+        "assignedTo": ["Claude Code → Prod (observation only)"]
+      }
+    },
+    "users": {
+      "samuel.setsofia": {
+        "userId": "3478e418-4011-703c-b612-ce5741e410f9",
+        "email": "setsofiaeli@gmail.com",
+        "displayName": "Samuel Setsofia"
+      },
+      "claude-code": {
+        "userId": "44a814d8-d091-7000-d3d1-77f3bd6f8800",
+        "email": "setsofiaeli+claude-code@gmail.com",
+        "displayName": "Claude Code (Deployment Agent)",
+        "note": "Reserved for future CI/automation. For now, Claude Code inherits Samuel's IdC session on Samuel's workstation."
+      }
+    }
+  }
+}

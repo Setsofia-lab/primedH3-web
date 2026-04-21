@@ -1,0 +1,45 @@
+{
+  "Version": "2012-10-17",
+  "Id": "primedhealth-cloudtrail-kms",
+  "Statement": [
+    {
+      "Sid": "EnableRootPermissions",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::613649367863:root" },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowCloudTrailToEncryptLogs",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudtrail.amazonaws.com" },
+      "Action": "kms:GenerateDataKey*",
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "kms:EncryptionContext:aws:cloudtrail:arn": "arn:aws:cloudtrail:*:613649367863:trail/*"
+        }
+      }
+    },
+    {
+      "Sid": "AllowCloudTrailToDescribeKey",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudtrail.amazonaws.com" },
+      "Action": "kms:DescribeKey",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowPrincipalsToDecrypt",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::613649367863:root" },
+      "Action": ["kms:Decrypt", "kms:ReEncryptFrom"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": { "kms:CallerAccount": "613649367863" },
+        "StringLike": {
+          "kms:EncryptionContext:aws:cloudtrail:arn": "arn:aws:cloudtrail:*:613649367863:trail/*"
+        }
+      }
+    }
+  ]
+}
