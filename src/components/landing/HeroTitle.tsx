@@ -21,11 +21,11 @@ function SplitLine({ text, startDelay }: { text: string; startDelay: number }) {
 export function HeroTitle() {
   return (
     <div className="hero-title-wrap">
-      <h1 className="hero-title">
-        <span className="line-1">
+      <h1 className="hero-title" aria-label="Primed Health. Seamless Perioperative Care.">
+        <span className="line-1" aria-hidden="true">
           <SplitLine text="PRIMED HEALTH." startDelay={1100} />
         </span>
-        <span className="line-2">
+        <span className="line-2" aria-hidden="true">
           <SplitLine text="Seamless Perioperative Care." startDelay={1400} />
         </span>
       </h1>
