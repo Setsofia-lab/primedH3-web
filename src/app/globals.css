@@ -1,5 +1,13 @@
 @import 'tailwindcss';
 
+/* All ported component + surface CSS — must come at the top per CSS spec.
+   These files use only the unprefixed CSS variables defined in :root below. */
+@import '../styles/components.css';
+@import '../styles/marketing.css';
+@import '../styles/auth.css';
+@import '../styles/shell.css';
+@import '../styles/patient-pwa.css';
+
 /* ============================================================
    PrimedHealth — Design Tokens
    Source of truth: CONSTITUTION.md §2 + design-system/tokens.css
@@ -269,8 +277,4 @@ h5 {
   }
 }
 
-/* ---------- Ported component + surface CSS ---------- */
-@import '../styles/components.css';
-@import '../styles/marketing.css';
-@import '../styles/shell.css';
-@import '../styles/patient-pwa.css';
+/* (Ported CSS imports moved to top of file — see header.) */
