@@ -1,0 +1,10 @@
+{
+  "name": "@primedhealth/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PrimedHealth agent runtime — LangChain + LangGraph on Bedrock. Implemented in Phase 3.",
+  "scripts": {
+    "build": "echo '[worker] placeholder — body lands in Phase 3' && exit 0",
+    "typecheck": "echo '[worker] no TS yet' && exit 0"
+  }
+}

@@ -7,6 +7,14 @@ settings:
 importers:
 
   .:
+    devDependencies:
+      prettier:
+        specifier: ^3.8.3
+        version: 3.8.3
+
+  apps/api: {}
+
+  apps/web:
     dependencies:
       '@dnd-kit/core':
         specifier: ^6.3.1
@@ -153,9 +161,6 @@ importers:
       msw:
         specifier: ^2.13.4
         version: 2.13.4(@types/node@20.19.39)(typescript@5.9.3)
-      prettier:
-        specifier: ^3.8.3
-        version: 3.8.3
       storybook:
         specifier: ^10.3.5
         version: 10.3.5(@testing-library/dom@10.4.1)(prettier@3.8.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -168,6 +173,30 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.39)(jsdom@29.0.2)(msw@2.13.4(@types/node@20.19.39)(typescript@5.9.3))(vite@8.0.9(@types/node@20.19.39)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.1))
+
+  apps/worker: {}
+
+  packages/agent-contracts:
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/shared-types:
+    dependencies:
+      zod:
+        specifier: ^4
+        version: 4.3.6
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/ui:
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
 packages:
 

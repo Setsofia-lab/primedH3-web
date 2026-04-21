@@ -1,0 +1,17 @@
+{
+  "name": "@primedhealth/shared-types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zod schemas + TS types shared across web, api, and worker.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "zod": "^4"
+  }
+}

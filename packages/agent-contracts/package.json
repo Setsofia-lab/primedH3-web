@@ -1,0 +1,14 @@
+{
+  "name": "@primedhealth/agent-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent, AgentRun, ToolRef interfaces. Stable across Phase 1 mocks and Phase 3 LangChain runnables.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
