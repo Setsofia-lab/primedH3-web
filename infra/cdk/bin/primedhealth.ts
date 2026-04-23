@@ -12,6 +12,10 @@ import 'source-map-support/register';
 import { App, Aspects, DefaultStackSynthesizer, Tags } from 'aws-cdk-lib';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import { NetworkStack } from '../lib/network-stack';
+import { SecretsStack } from '../lib/secrets-stack';
+import { DataStack } from '../lib/data-stack';
+import { AuthStack } from '../lib/auth-stack';
+import { ObservabilityStack } from '../lib/observability-stack';
 import { PROJECT, QUALIFIER, resolveEnv, stackName } from '../lib/config';
 
 const app = new App();
@@ -22,12 +26,42 @@ const typedEnv = envName as 'dev' | 'prod';
 
 const synthesizer = new DefaultStackSynthesizer({ qualifier: QUALIFIER });
 const env = { account: cfg.account, region: cfg.region };
+const common = { env, synthesizer };
+
+// --- Stacks in dependency order ---
 
 const network = new NetworkStack(app, stackName(typedEnv, 'network'), {
-  env,
+  ...common,
   envName: typedEnv,
-  synthesizer,
   description: `VPC + subnets + NAT + flow logs (${typedEnv})`,
+});
+
+const secrets = new SecretsStack(app, stackName(typedEnv, 'secrets'), {
+  ...common,
+  envName: typedEnv,
+  description: `KMS CMK + Secrets Manager placeholders (${typedEnv})`,
+});
+
+const data = new DataStack(app, stackName(typedEnv, 'data'), {
+  ...common,
+  envName: typedEnv,
+  vpc: network.vpc,
+  cmk: secrets.cmk,
+  description: `Aurora + Redis + S3 uploads + SQS (${typedEnv})`,
+});
+
+const auth = new AuthStack(app, stackName(typedEnv, 'auth'), {
+  ...common,
+  envName: typedEnv,
+  description: `Cognito pools: admins, providers, patients (${typedEnv})`,
+});
+
+const observability = new ObservabilityStack(app, stackName(typedEnv, 'observability'), {
+  ...common,
+  envName: typedEnv,
+  cmk: secrets.cmk,
+  alertEmail: 'setsofiaeli@gmail.com',
+  description: `App log groups + SNS alerts topic (${typedEnv})`,
 });
 
 // App-wide tags
@@ -38,5 +72,7 @@ Tags.of(app).add('ManagedBy', 'cdk');
 // Enforce AWS Solutions best practices via cdk-nag on every stack
 Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
-// Silence noisy "used" variable lint — retain the reference for future cross-stack wiring
-void network;
+// Keep lint happy — these stacks are referenced by later milestones (M4+).
+void data;
+void auth;
+void observability;
