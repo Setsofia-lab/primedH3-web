@@ -77,6 +77,18 @@ const api = new ApiStack(app, stackName(typedEnv, 'api'), {
   uploadsBucket: data.uploadsBucket,
   apiLogGroup: observability.apiLogGroup,
   athenaPrivateJwk: secrets.athenaPrivateJwk,
+  cognitoAdmins: {
+    poolId: auth.admins.pool.userPoolId,
+    clientId: auth.admins.client.userPoolClientId,
+  },
+  cognitoProviders: {
+    poolId: auth.providers.pool.userPoolId,
+    clientId: auth.providers.client.userPoolClientId,
+  },
+  cognitoPatients: {
+    poolId: auth.patients.pool.userPoolId,
+    clientId: auth.patients.client.userPoolClientId,
+  },
   description: `ECS Fargate api + ALB (${typedEnv})`,
 });
 
@@ -88,6 +100,5 @@ Tags.of(app).add('ManagedBy', 'cdk');
 // Enforce AWS Solutions best practices via cdk-nag on every stack
 Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
-// Keep lint happy — referenced by later milestones.
-void auth;
+// Keep lint happy — api is referenced implicitly through CFN exports.
 void api;

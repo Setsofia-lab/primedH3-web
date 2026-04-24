@@ -29,6 +29,11 @@ import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import type { EnvName } from './config';
 
+export interface CognitoPoolRef {
+  readonly poolId: string;
+  readonly clientId: string;
+}
+
 export interface ApiStackProps extends StackProps {
   readonly envName: EnvName;
   readonly vpc: ec2.IVpc;
@@ -40,6 +45,9 @@ export interface ApiStackProps extends StackProps {
   readonly uploadsBucket: s3.IBucket;
   readonly apiLogGroup: logs.ILogGroup;
   readonly athenaPrivateJwk: sm.ISecret;
+  readonly cognitoAdmins: CognitoPoolRef;
+  readonly cognitoProviders: CognitoPoolRef;
+  readonly cognitoPatients: CognitoPoolRef;
 }
 
 export class ApiStack extends Stack {
@@ -165,6 +173,16 @@ export class ApiStack extends Stack {
         REDIS_HOST: props.redis.attrPrimaryEndPointAddress,
         REDIS_PORT: props.redis.attrPrimaryEndPointPort,
         UPLOADS_BUCKET: props.uploadsBucket.bucketName,
+        // Cognito — the auth module verifies JWTs issued by any of these
+        // three pools. Pool IDs are non-secret (they appear in every JWT's
+        // `iss` claim) so env vars are fine.
+        COGNITO_REGION: this.region,
+        COGNITO_ADMINS_POOL_ID: props.cognitoAdmins.poolId,
+        COGNITO_ADMINS_CLIENT_ID: props.cognitoAdmins.clientId,
+        COGNITO_PROVIDERS_POOL_ID: props.cognitoProviders.poolId,
+        COGNITO_PROVIDERS_CLIENT_ID: props.cognitoProviders.clientId,
+        COGNITO_PATIENTS_POOL_ID: props.cognitoPatients.poolId,
+        COGNITO_PATIENTS_CLIENT_ID: props.cognitoPatients.clientId,
       },
       // No container-level health check: distroless images have no shell
       // for CMD-SHELL, and the ALB target group already polls GET /health

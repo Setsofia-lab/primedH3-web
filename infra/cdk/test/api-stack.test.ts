@@ -33,7 +33,7 @@ describe('full dev stack set', () => {
       cmk: secrets.cmk,
       alertEmail: 'test@example.com',
     });
-    new AuthStack(app, 'auth', { env, envName: 'dev' });
+    const auth = new AuthStack(app, 'auth', { env, envName: 'dev' });
     const api = new ApiStack(app, 'api', {
       env,
       envName: 'dev',
@@ -46,6 +46,18 @@ describe('full dev stack set', () => {
       uploadsBucket: data.uploadsBucket,
       apiLogGroup: obs.apiLogGroup,
       athenaPrivateJwk: secrets.athenaPrivateJwk,
+      cognitoAdmins: {
+        poolId: auth.admins.pool.userPoolId,
+        clientId: auth.admins.client.userPoolClientId,
+      },
+      cognitoProviders: {
+        poolId: auth.providers.pool.userPoolId,
+        clientId: auth.providers.client.userPoolClientId,
+      },
+      cognitoPatients: {
+        poolId: auth.patients.pool.userPoolId,
+        clientId: auth.patients.client.userPoolClientId,
+      },
     });
 
     const t = Template.fromStack(api);
@@ -87,6 +99,10 @@ describe('full dev stack set', () => {
       cmk: secProd.cmk,
       alertEmail: 'test@example.com',
     });
+    const authProd = new AuthStack(appProd, 'authp', {
+      env: { account: '492084584502', region: 'us-east-1' },
+      envName: 'prod',
+    });
     const apiProd = new ApiStack(appProd, 'apip', {
       env: { account: '492084584502', region: 'us-east-1' },
       envName: 'prod',
@@ -99,6 +115,18 @@ describe('full dev stack set', () => {
       uploadsBucket: dataProd.uploadsBucket,
       apiLogGroup: obsProd.apiLogGroup,
       athenaPrivateJwk: secProd.athenaPrivateJwk,
+      cognitoAdmins: {
+        poolId: authProd.admins.pool.userPoolId,
+        clientId: authProd.admins.client.userPoolClientId,
+      },
+      cognitoProviders: {
+        poolId: authProd.providers.pool.userPoolId,
+        clientId: authProd.providers.client.userPoolClientId,
+      },
+      cognitoPatients: {
+        poolId: authProd.patients.pool.userPoolId,
+        clientId: authProd.patients.client.userPoolClientId,
+      },
     });
     Template.fromStack(apiProd).hasResourceProperties('AWS::ECS::Service', {
       DesiredCount: 2,
