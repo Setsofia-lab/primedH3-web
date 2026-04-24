@@ -5,8 +5,14 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { resolveRuntimeSecrets } from './config/secret-resolver';
 
 async function bootstrap(): Promise<void> {
+  // Fetch Aurora master creds + wire Redis endpoint before Nest reads
+  // the config. No-op when DATABASE_URL is already set (local dev / CI).
+  await resolveRuntimeSecrets();
+
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ trustProxy: true }),

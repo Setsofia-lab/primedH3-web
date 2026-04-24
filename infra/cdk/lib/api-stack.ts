@@ -13,7 +13,7 @@
  */
 
 import * as path from 'node:path';
-import { Duration, Stack, type StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Stack, type StackProps } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
@@ -45,6 +45,7 @@ export interface ApiStackProps extends StackProps {
 export class ApiStack extends Stack {
   public readonly alb: elbv2.ApplicationLoadBalancer;
   public readonly service: ecs.FargateService;
+  public readonly migrateTaskFamily: string;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -168,6 +169,40 @@ export class ApiStack extends Stack {
       // No container-level health check: distroless images have no shell
       // for CMD-SHELL, and the ALB target group already polls GET /health
       // (configured below). One source of truth.
+    });
+
+    // --- Migrate (one-shot) task definition ---
+    // Same image, same taskRole, same env — only the entrypoint changes.
+    // Run via `aws ecs run-task --task-definition primedhealth-<env>-migrate`.
+    // See docs/runbooks/migrate.md.
+    const migrateTaskDef = new ecs.FargateTaskDefinition(this, 'MigrateTaskDef', {
+      cpu: 256,
+      memoryLimitMiB: 512,
+      taskRole,
+      family: `primedhealth-${props.envName}-migrate`,
+      runtimePlatform: {
+        cpuArchitecture: ecs.CpuArchitecture.X86_64,
+        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+      },
+    });
+    this.migrateTaskFamily = `primedhealth-${props.envName}-migrate`;
+    migrateTaskDef.addContainer('migrate', {
+      image: ecs.ContainerImage.fromDockerImageAsset(image),
+      containerName: 'migrate',
+      command: ['dist/db/migrate.js'],
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: 'migrate',
+        logGroup: props.apiLogGroup,
+      }),
+      environment: {
+        NODE_ENV: isProd ? 'production' : 'staging',
+        LOG_LEVEL: 'info',
+        SERVICE_NAME: 'primedhealth-api-migrate',
+        SERVICE_VERSION: image.imageTag,
+        AWS_REGION: this.region,
+        DB_SECRET_ARN: props.aurora.secret?.secretArn ?? '',
+      },
+      essential: true,
     });
 
     // --- Service Security Group ---
@@ -328,5 +363,38 @@ export class ApiStack extends Stack {
       ],
       true,
     );
+    NagSuppressions.addResourceSuppressions(
+      migrateTaskDef,
+      [
+        {
+          id: 'AwsSolutions-ECS2',
+          reason:
+            'Env vars on the migrate task def are non-sensitive (secret ARNs, not values). Secret values are fetched at runtime via task role.',
+        },
+      ],
+      true,
+    );
+    NagSuppressions.addResourceSuppressions(
+      migrateTaskDef.obtainExecutionRole(),
+      [
+        {
+          id: 'AwsSolutions-IAM5',
+          reason:
+            'Execution role uses the AWS-managed AmazonECSTaskExecutionRolePolicy defaults (ECR pull + CloudWatch Logs write). Same justification as the api task def execution role.',
+          appliesTo: ['Resource::*'],
+        },
+      ],
+      true,
+    );
+
+    // --- Stack outputs (used by docs/runbooks/migrate.md) ---
+    new CfnOutput(this, 'ClusterName', { value: cluster.clusterName });
+    new CfnOutput(this, 'MigrateTaskFamily', { value: this.migrateTaskFamily });
+    new CfnOutput(this, 'ServiceSubnetIds', {
+      value: props.vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS })
+        .subnetIds.join(','),
+    });
+    new CfnOutput(this, 'ServiceSgId', { value: serviceSg.securityGroupId });
+    new CfnOutput(this, 'AlbDnsName', { value: this.alb.loadBalancerDnsName });
   }
 }

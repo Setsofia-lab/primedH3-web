@@ -16,10 +16,12 @@ export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
         // Fall back to a local default so the app can boot in dev even
         // without Redis; readiness will flag it as `down`.
         const client = new Redis(url ?? 'redis://127.0.0.1:6379', {
-          lazyConnect: true,
+          // Eager connect so readiness probes get a real state, not
+          // "offline queue disabled"; maxRetries bounds reconnect storms.
+          lazyConnect: false,
           maxRetriesPerRequest: 2,
-          connectTimeout: 2000,
-          enableOfflineQueue: false,
+          connectTimeout: 3000,
+          enableOfflineQueue: true,
           tls: (url ?? '').startsWith('rediss://') ? {} : undefined,
         });
         // Suppress unhandled-error crash — readiness reports status instead.
