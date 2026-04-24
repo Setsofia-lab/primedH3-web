@@ -59,3 +59,29 @@ export const listCasesQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 export type ListCasesQuery = z.infer<typeof listCasesQuerySchema>;
+
+export const userRoleValues = [
+  'admin',
+  'surgeon',
+  'anesthesia',
+  'coordinator',
+  'allied',
+  'patient',
+] as const;
+
+export const inviteUserSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(userRoleValues),
+  firstName: z.string().min(1).max(120),
+  lastName: z.string().min(1).max(120),
+  facilityId: z.string().uuid().optional(),
+});
+export type InviteUserInput = z.infer<typeof inviteUserSchema>;
+
+export const listUsersQuerySchema = z.object({
+  role: z.enum(userRoleValues).optional(),
+  facilityId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;

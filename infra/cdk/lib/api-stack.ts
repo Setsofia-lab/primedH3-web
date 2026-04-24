@@ -136,6 +136,32 @@ export class ApiStack extends Stack {
         resources: [props.uploadsBucket.bucketArn, `${props.uploadsBucket.bucketArn}/*`],
       }),
     );
+    // Cognito user-pool admin operations — used by /admin/users/invite
+    // (M7.3c) to create users + manage group memberships. Scoped to the
+    // three pools owned by this environment.
+    taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'AdminUserManagement',
+        actions: [
+          'cognito-idp:AdminCreateUser',
+          'cognito-idp:AdminGetUser',
+          'cognito-idp:AdminAddUserToGroup',
+          'cognito-idp:AdminRemoveUserFromGroup',
+          'cognito-idp:AdminListGroupsForUser',
+          'cognito-idp:AdminDisableUser',
+          'cognito-idp:AdminEnableUser',
+          'cognito-idp:CreateGroup',
+          'cognito-idp:GetGroup',
+          'cognito-idp:ListUsers',
+          'cognito-idp:ListGroups',
+        ],
+        resources: [
+          `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${props.cognitoAdmins.poolId}`,
+          `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${props.cognitoProviders.poolId}`,
+          `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${props.cognitoPatients.poolId}`,
+        ],
+      }),
+    );
 
     // --- Task definition ---
     const taskDef = new ecs.FargateTaskDefinition(this, 'TaskDef', {

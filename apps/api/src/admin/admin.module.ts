@@ -7,14 +7,18 @@
  */
 import { Module } from '@nestjs/common';
 import { CasesAdminController } from './cases-admin.controller';
+import { CognitoInviteService } from './cognito-invite.service';
 import { FacilitiesAdminController } from './facilities-admin.controller';
 import { PatientsAdminController } from './patients-admin.controller';
+import { UsersAdminController } from './users-admin.controller';
 
 @Module({
   controllers: [
     FacilitiesAdminController,
     PatientsAdminController,
     CasesAdminController,
+    UsersAdminController,
   ],
+  providers: [CognitoInviteService],
 })
 export class AdminModule {}

@@ -1,156 +1,113 @@
 'use client';
 
+/**
+ * Admin · Dashboard — KPIs from real data, plus an honest "agents
+ * status" card that reflects M9 hasn't shipped.
+ */
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
-import { AGENTS } from '@/mocks/fixtures/admin';
+import { NotYetBuilt } from '@/components/shell/NotYetBuilt';
 
-interface StreamEvent {
-  id: number;
-  ts: number;
-  agent: string;
-  msg: string;
-}
+interface CaseRow { status: string; readinessScore: number | null; }
+interface User { firstName: string; lastName: string; }
 
-const HIGHLIGHT_NAMES = /(Alex Rivera|Jordan Park|Maya Khan|Daniel Shaw|Nora Bright)/g;
-
-const SCRIPTED_EVENTS: Array<{ agent: string; msg: string }> = [
-  { agent: 'IntakeOrchestrator',  msg: 'Built workup plan for Alex Rivera · 5 items, 2 risk flags' },
-  { agent: 'RiskScreeningAgent',  msg: 'Re-screened Daniel Shaw · ASA 3, RCRI 2 · escalated to coordinator' },
-  { agent: 'AnesthesiaClearance', msg: 'Drafted pre-op note for Jordan Park · pending Dr. Chen review' },
-  { agent: 'ReferralAgent',       msg: 'Sent cardiology referral for Daniel Shaw · provider/cardio_lin' },
-  { agent: 'PatientCommsAgent',   msg: 'Drafted SMS for Maya Khan · pending coordinator approval' },
-  { agent: 'ReadinessAgent',      msg: 'Recomputed Alex Rivera score → 82 (+4)' },
-  { agent: 'DocumentationAgent',  msg: 'Pulled Athena chart for Nora Bright · 12 encounters loaded' },
-  { agent: 'TaskTrackerAgent',    msg: 'Moved Maya Khan card · Workup → Clearance' },
-];
-
-function timeAgo(ts: number) {
-  const s = Math.round((Date.now() - ts) / 1000);
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.round(s / 60)}m`;
-  return `${Math.round(s / 3600)}h`;
-}
-
-function formatMsg(msg: string) {
-  const parts = msg.split(HIGHLIGHT_NAMES);
-  return parts.map((p, i) =>
-    i % 2 === 1 ? <strong key={i}>{p}</strong> : <span key={i}>{p}</span>,
-  );
+async function jsonOrNull<T>(res: Response): Promise<T | null> {
+  if (!res.ok) return null;
+  return (await res.json()) as T;
 }
 
 export default function AdminDashboardPage() {
-  const [events, setEvents] = useState<StreamEvent[]>(() =>
-    [0, 1, 2, 3].map((i) => ({
-      id: Date.now() - i * 12_000,
-      ts: Date.now() - i * 12_000,
-      agent: SCRIPTED_EVENTS[i].agent,
-      msg: SCRIPTED_EVENTS[i].msg,
-    })),
-  );
-  const [, setTick] = useState(0);
+  const [me, setMe] = useState<User | null>(null);
+  const [counts, setCounts] = useState<{
+    cases: number;
+    patients: number;
+    users: number;
+    avgReadiness: number | null;
+  } | null>(null);
 
-  // Push a new scripted event every ~5s
   useEffect(() => {
-    let cursor = 4;
-    const id = setInterval(() => {
-      const next = SCRIPTED_EVENTS[cursor % SCRIPTED_EVENTS.length];
-      cursor += 1;
-      setEvents((prev) => {
-        const newEvent: StreamEvent = { id: Date.now(), ts: Date.now(), agent: next.agent, msg: next.msg };
-        return [newEvent, ...prev].slice(0, 8);
+    void (async () => {
+      const meRes = await jsonOrNull<{ firstName: string; lastName: string }>(await fetch('/api/auth/me'));
+      if (meRes) setMe(meRes);
+      const [c, p, u] = await Promise.all([
+        jsonOrNull<{ items: CaseRow[] }>(await fetch('/api/admin/cases?limit=200')),
+        jsonOrNull<{ items: unknown[] }>(await fetch('/api/admin/patients?limit=200')),
+        jsonOrNull<{ items: unknown[] }>(await fetch('/api/admin/users?limit=200')),
+      ]);
+      const cases = c?.items ?? [];
+      const scored = cases.filter((x) => typeof x.readinessScore === 'number');
+      setCounts({
+        cases: cases.length,
+        patients: p?.items.length ?? 0,
+        users: u?.items.length ?? 0,
+        avgReadiness:
+          scored.length > 0
+            ? Math.round(
+                scored.reduce((a, x) => a + (x.readinessScore ?? 0), 0) / scored.length,
+              )
+            : null,
       });
-    }, 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Tick to refresh "x s ago" labels every 10s
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 10_000);
-    return () => clearInterval(id);
+    })();
   }, []);
 
   return (
     <AppShell breadcrumbs={['Admin', 'Dashboard']}>
       <div className="page-head">
         <div>
-          <span className="eyebrow">Admin · Bayview Surgical Center</span>
+          <span className="eyebrow">Admin · Dashboard</span>
           <h1>
-            Good morning, Dr. <span className="emph">Malhotra</span>.
+            {me ? (
+              <>Welcome back, <span className="emph">{me.firstName}</span>.</>
+            ) : (
+              <>Welcome <span className="emph">back</span>.</>
+            )}
           </h1>
         </div>
         <div className="page-actions">
-          <button className="btn btn-outline-dark">Export report</button>
-          <button className="btn btn-primary">Invite user</button>
+          <a className="btn btn-outline-dark" href="/app/admin/athena">Hydrate patient</a>
+          <a className="btn btn-primary" href="/app/admin/users">Invite user</a>
         </div>
       </div>
 
       <div className="kpi-grid">
         <div className="kpi blue">
           <div className="lbl">Active cases</div>
-          <div className="val">127</div>
-          <div className="delta">+12 this week</div>
+          <div className="val">{counts?.cases ?? '—'}</div>
+          <div className="delta">across all facilities</div>
+        </div>
+        <div className="kpi">
+          <div className="lbl">Mirrored patients</div>
+          <div className="val">{counts?.patients ?? '—'}</div>
+          <div className="delta">from Athena</div>
+        </div>
+        <div className="kpi">
+          <div className="lbl">Users</div>
+          <div className="val">{counts?.users ?? '—'}</div>
+          <div className="delta">with login access</div>
         </div>
         <div className="kpi">
           <div className="lbl">Avg readiness</div>
           <div className="val">
-            78<span style={{ fontSize: '1.25rem', color: 'var(--ink-500)' }}>%</span>
+            {counts?.avgReadiness ?? '—'}
+            {counts?.avgReadiness != null && <span style={{ fontSize: '1.25rem', color: 'var(--ink-500)' }}>%</span>}
           </div>
-          <div className="delta">+4% vs last wk</div>
-        </div>
-        <div className="kpi">
-          <div className="lbl">Same-day cancels</div>
-          <div className="val">
-            2.4<span style={{ fontSize: '1.25rem', color: 'var(--ink-500)' }}>%</span>
-          </div>
-          <div className="delta">−1.8 pp</div>
-        </div>
-        <div className="kpi">
-          <div className="lbl">Agent runs · 24h</div>
-          <div className="val">1,284</div>
-          <div className="delta down">0 failures</div>
+          <div className="delta">scored cases only</div>
         </div>
       </div>
 
-      <div className="dash-grid">
-        <div className="card">
-          <div className="card-head">
-            <h3>Live agent activity</h3>
-            <span className="live">
-              <span className="live-dot" />
-              LIVE
-            </span>
-          </div>
-          <div className="stream">
-            {events.map((e) => (
-              <div className="ev" key={e.id}>
-                <span className="agent-tag">{e.agent}</span>
-                <div className="msg">{formatMsg(e.msg)}</div>
-                <span className="time">{timeAgo(e.ts)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-head">
-            <h3>Agent health</h3>
-            <a href="/app/admin/agents" className="view-all">All agents →</a>
-          </div>
-          <div className="agents-health">
-            {AGENTS.slice(0, 6).map((a) => (
-              <div className="ah-row" key={a.id}>
-                <div>
-                  <div className="nm">{a.name}</div>
-                  <div className="sub">
-                    {a.model} · {a.runs24h} runs
-                  </div>
-                </div>
-                <span className="runs">p50 {a.p50}s</span>
-                <span className={`status-pill ${a.status}`}>{a.status}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div style={{ marginTop: 24 }}>
+        <NotYetBuilt
+          title="Live agent activity stream"
+          milestone="Phase 2 · M9"
+          description={
+            <>
+              Once the worker service ships, this card will stream agent runs
+              in real time — IntakeOrchestrator, RiskScreening, Readiness, etc.
+              For now, the data plumbing (cases, patients, users) is wired and
+              real; the AI layer is next.
+            </>
+          }
+        />
       </div>
     </AppShell>
   );
