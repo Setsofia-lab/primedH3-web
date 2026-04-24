@@ -1,0 +1,27 @@
+# gitleaks config — same rules as default, with project-specific
+# allowlist for test fixtures that exercise URL encoding.
+#
+# Run locally: gitleaks detect --config .gitleaks.toml --verbose
+# CI runs this via .github/workflows/secret-scan.yml
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for PrimedHealth"
+paths = [
+  '''(^|/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$''',
+  '''(^|/)cdk\.out/''',
+  '''(^|/)\.next/''',
+  '''(^|/)storybook-static/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)coverage/''',
+]
+regexes = [
+  # Test fixtures explicitly labelled as fixtures (see
+  # apps/api/test/secret-resolver.test.ts). Bracketing tokens with
+  # TEST_FIXTURE_ tells both humans and scanners this is not a secret.
+  '''TEST_FIXTURE_[A-Za-z0-9@%:!._-]+''',
+  # RFC 2606 reserved TLDs used in examples
+  '''(?i)\.example\.(com|net|org|invalid)''',
+]

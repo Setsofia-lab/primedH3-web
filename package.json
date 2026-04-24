@@ -15,9 +15,12 @@
     "build-storybook": "pnpm --filter @primedhealth/web build-storybook",
     "test-storybook": "pnpm --filter @primedhealth/web test-storybook",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky",
+    "secrets:scan": "gitleaks detect --config .gitleaks.toml --verbose"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "prettier": "^3.8.3"
   }
 }

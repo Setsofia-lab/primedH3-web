@@ -1,0 +1,30 @@
+#!/usr/bin/env sh
+# PrimedHealth pre-commit hook.
+#
+# 1. gitleaks — scan staged changes for secrets. Blocks the commit on
+#    any finding not covered by .gitleaks.toml. If gitleaks is not
+#    installed, prints a warning and continues (CI catches it as a
+#    backstop via .github/workflows/secret-scan.yml).
+#
+# Install gitleaks once:
+#   brew install gitleaks     # macOS
+#   # or: go install github.com/gitleaks/gitleaks/v8@latest
+#
+# Bypass (only when you're certain — e.g. committing test fixtures):
+#   git commit --no-verify
+
+set -e
+
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "🔒  gitleaks: scanning staged changes…"
+  if ! gitleaks protect --staged --config .gitleaks.toml --redact --verbose; then
+    echo ""
+    echo "❌  gitleaks found a secret in your staged changes."
+    echo "    If it's a false positive (test fixture), add an allowlist"
+    echo "    entry in .gitleaks.toml rather than bypassing the hook."
+    exit 1
+  fi
+else
+  echo "⚠️  gitleaks is not installed — skipping local secret scan."
+  echo "    CI will still run it on the PR. Install: brew install gitleaks"
+fi
