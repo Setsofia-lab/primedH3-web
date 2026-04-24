@@ -128,13 +128,30 @@ export class AthenaAuthService implements OnApplicationShutdown {
       grant_type: 'client_credentials',
       client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
       client_assertion: assertion,
-      // SMART v2 system-read wildcards, plus Event Notifications reads.
-      // Write scopes are intentionally omitted — per ADR 0002 we don't
-      // push back to Athena; our backend is the source of truth for the
-      // pre-op workflow and Athena is the EHR source of truth that we
-      // mirror. Keep this list a subset of what's granted on the Athena
-      // app (otherwise the token endpoint returns "Invalid Scope").
-      scope: 'system/*.r system/*.rs system/*.s system/Subscription.read system/SubscriptionTopic.read',
+      // SMART v2 system-read scopes, enumerated per-resource.
+      //
+      // Athena Preview's authorisation server does NOT grant wildcard
+      // scopes (`system/*.r` returns Invalid Scope) even when the app
+      // has 108 FHIR R4 V2 resource scopes enabled — it requires each
+      // resource to be listed explicitly. It also only accepts the
+      // SMART v2 `.r`/`.rs`/`.s` suffix family, not SMART v1 `.read`.
+      //
+      // This list is minimal-but-expanding: we add resources here as
+      // real read paths go live. Appointment + Slot are intentionally
+      // absent — not granted on the current Athena app registration
+      // (see M5.9 partner email). Writes are omitted per ADR 0002.
+      scope: [
+        'system/Patient.r',
+        'system/Patient.rs',
+        'system/Encounter.r',
+        'system/Encounter.rs',
+        'system/Observation.r',
+        'system/Observation.rs',
+        'system/Procedure.r',
+        'system/DocumentReference.r',
+        'system/Practitioner.r',
+        'system/Organization.r',
+      ].join(' '),
     });
 
     const started = Date.now();
