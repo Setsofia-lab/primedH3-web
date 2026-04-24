@@ -59,7 +59,10 @@ export class AuthStack extends Stack {
           'https://staging.primed.ai',
           // Add Vercel preview wildcard once we set up a branch-specific domain.
         ];
-    const callbackUrls = webOrigins.map((u) => `${u}/auth/callback`);
+    // Next.js App Router route handlers live under /api — the web uses
+    // /api/auth/callback for the token exchange and /auth/signed-out as
+    // the post-logout landing page (plain App Router page).
+    const callbackUrls = webOrigins.map((u) => `${u}/api/auth/callback`);
     const logoutUrls = webOrigins.map((u) => `${u}/auth/signed-out`);
 
     const commonPoolProps: Omit<cognito.UserPoolProps, 'userPoolName'> = {
