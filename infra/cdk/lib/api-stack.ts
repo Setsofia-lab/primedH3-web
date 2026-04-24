@@ -170,6 +170,19 @@ export class ApiStack extends Stack {
         // living in a sibling stack.
         DB_SECRET_ARN: props.aurora.secret?.secretArn ?? '',
         ATHENA_JWK_SECRET_ARN: props.athenaPrivateJwk.secretArn,
+        // Athena integration (non-secret values — client_id appears in
+        // every OAuth request; practice ids appear in every FHIR URL).
+        // Base + token URLs are optional — AthenaModule falls back to
+        // the canonical Preview defaults when unset. We set them
+        // explicitly so prod can override without a code change.
+        ATHENA_CLIENT_ID: props.envName === 'prod' ? '' : '0oa12cfxyvfhIGS6I298',
+        ATHENA_BASE_URL:
+          props.envName === 'prod' ? '' : 'https://api.preview.platform.athenahealth.com',
+        ATHENA_TOKEN_URL:
+          props.envName === 'prod'
+            ? ''
+            : 'https://api.preview.platform.athenahealth.com/oauth2/v1/token',
+        ATHENA_DEFAULT_PRACTICE_ID: props.envName === 'prod' ? '' : '1128700',
         REDIS_HOST: props.redis.attrPrimaryEndPointAddress,
         REDIS_PORT: props.redis.attrPrimaryEndPointPort,
         UPLOADS_BUCKET: props.uploadsBucket.bucketName,

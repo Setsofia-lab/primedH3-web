@@ -1,4 +1,4 @@
-import { pgEnum, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgEnum, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 /**
  * Shared columns for every entity in §6.
@@ -20,6 +20,24 @@ export const baseColumns = {
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 } as const;
 
+/**
+ * Columns added to every entity whose authoritative record lives in
+ * Athena (see ADR 0002 — read-only cache architecture).
+ *
+ * - source: 'athena' when the row mirrors an Athena resource; 'primedhealth' when we own it.
+ * - athenaResourceId: the FHIR id (e.g. `a-1128700.E-14914` for Patient).
+ * - athenaPracticeId: numeric Athena practice id (§12 dev IDs: 1128700 / 195900 / 80000).
+ * - athenaVersion: FHIR `meta.versionId` — used for optimistic concurrency on re-syncs.
+ * - athenaLastSyncAt: timestamp of the last successful read from Athena.
+ */
+export const athenaMirrorColumns = {
+  source: varchar('source', { length: 16 }).notNull().default('primedhealth'),
+  athenaResourceId: text('athena_resource_id'),
+  athenaPracticeId: varchar('athena_practice_id', { length: 16 }),
+  athenaVersion: varchar('athena_version', { length: 64 }),
+  athenaLastSyncAt: timestamp('athena_last_sync_at', { withTimezone: true, mode: 'date' }),
+} as const;
+
 /** User role enum — Constitution §1.4 primary users. */
 export const userRoleEnum = pgEnum('user_role', [
   'admin',
@@ -39,4 +57,18 @@ export const caseStatusEnum = pgEnum('case_status', [
   'ready',
   'completed',
   'cancelled',
+]);
+
+/** Appointment lifecycle — mirrors FHIR Appointment.status (R4). */
+export const appointmentStatusEnum = pgEnum('appointment_status', [
+  'proposed',
+  'pending',
+  'booked',
+  'arrived',
+  'fulfilled',
+  'cancelled',
+  'noshow',
+  'entered-in-error',
+  'checked-in',
+  'waitlist',
 ]);

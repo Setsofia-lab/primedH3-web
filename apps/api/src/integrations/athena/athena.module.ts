@@ -20,6 +20,7 @@ import { AthenaAuthService } from './athena-auth.service';
 import { AthenaHttpService } from './athena-http.service';
 import { AthenaFhirClient } from './athena-fhir.client';
 import { AthenaOneClient } from './athenaone.client';
+import { PatientHydrationService } from './hydration/patient-hydration.service';
 
 @Global()
 @Module({
@@ -41,6 +42,7 @@ import { AthenaOneClient } from './athenaone.client';
     AthenaHttpService,
     AthenaFhirClient,
     AthenaOneClient,
+    PatientHydrationService,
   ],
   exports: [
     AthenaAuthService,
@@ -48,6 +50,7 @@ import { AthenaOneClient } from './athenaone.client';
     AthenaJwkService,
     AthenaFhirClient,
     AthenaOneClient,
+    PatientHydrationService,
     ATHENA_CONFIG_TOKEN,
   ],
 })
