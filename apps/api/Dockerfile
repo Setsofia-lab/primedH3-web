@@ -38,8 +38,9 @@ COPY packages/agent-contracts packages/agent-contracts
 
 RUN pnpm --filter @primedhealth/api build
 
-# Deploy emits a self-contained production bundle at /out.
-# --legacy is required on pnpm v10+ for non-injected workspaces.
+# Deploy emits a self-contained production bundle at /out with just
+# the production dep graph. --legacy is required on pnpm v10+ for
+# non-injected workspaces.
 RUN pnpm --filter @primedhealth/api --prod --legacy deploy /out
 
 ##############################
@@ -48,9 +49,13 @@ RUN pnpm --filter @primedhealth/api --prod --legacy deploy /out
 FROM gcr.io/distroless/nodejs22-debian12 AS runtime
 
 WORKDIR /app
-COPY --from=builder /out/dist ./dist
+# Runtime deps from `pnpm deploy` (minimal, prod-only tree).
 COPY --from=builder /out/node_modules ./node_modules
 COPY --from=builder /out/package.json ./package.json
+# Compiled JS from the nest build step directly — `pnpm deploy`
+# respects .gitignore, which excludes dist/ from the emitted bundle,
+# so we copy from the source build output instead.
+COPY --from=builder /repo/apps/api/dist ./dist
 
 USER nonroot
 ENV NODE_ENV=production

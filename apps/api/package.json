@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "description": "PrimedHealth API — NestJS REST + OpenAPI. Implemented in Phase 2 M4.",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
