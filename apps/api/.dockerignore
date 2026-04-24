@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/.next
+**/cdk.out
+**/storybook-static
+**/test-results
+**/playwright-report
+**/.vercel
+**/.git
+**/.github
+**/.claude
+**/.turbo
+**/coverage
+**/*.log
+.DS_Store

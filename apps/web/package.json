@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test-storybook": "test-storybook"
+    "test-storybook": "test-storybook",
+    "api-client:generate": "openapi-typescript ${API_OPENAPI_URL:-http://localhost:3001/docs/openapi.json} -o src/lib/api-client.generated.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -67,6 +68,7 @@
     "msw": "^2.13.4",
     "storybook": "^10.3.5",
     "tailwindcss": "^4",
+    "openapi-typescript": "^7.5.0",
     "typescript": "^5",
     "vitest": "^4.1.4"
   },
