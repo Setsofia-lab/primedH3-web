@@ -33,13 +33,14 @@ export interface AuthStackProps extends StackProps {
 interface PoolClients {
   readonly pool: cognito.UserPool;
   readonly client: cognito.UserPoolClient;
+  readonly domain: cognito.UserPoolDomain;
+  readonly domainName: string;
 }
 
 export class AuthStack extends Stack {
   public readonly admins: PoolClients;
   public readonly providers: PoolClients;
   public readonly patients: PoolClients;
-  public readonly domain: cognito.UserPoolDomain;
 
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
@@ -102,82 +103,67 @@ export class AuthStack extends Stack {
       },
     });
 
-    // --- Admins pool ---
-    const adminsPool = new cognito.UserPool(this, 'AdminsPool', {
-      ...commonPoolProps,
-      userPoolName: `primedhealth-${props.envName}-admins`,
-      mfa: cognito.Mfa.REQUIRED,
-      mfaSecondFactor: { sms: false, otp: true },
-    });
-    const adminsClient = adminsPool.addClient('AdminsAppClient', {
-      ...commonClientProps(),
-      userPoolClientName: `primedhealth-${props.envName}-admins-web`,
-    });
-    this.admins = { pool: adminsPool, client: adminsClient };
+    const mkPool = (
+      id: string,
+      kind: 'admins' | 'providers' | 'patients',
+      mfa: cognito.Mfa,
+      extraClient: Partial<cognito.UserPoolClientOptions> = {},
+    ): PoolClients => {
+      const pool = new cognito.UserPool(this, `${id}Pool`, {
+        ...commonPoolProps,
+        userPoolName: `primedhealth-${props.envName}-${kind}`,
+        mfa,
+        mfaSecondFactor: { sms: false, otp: true },
+      });
+      const client = pool.addClient(`${id}AppClient`, {
+        ...commonClientProps(),
+        userPoolClientName: `primedhealth-${props.envName}-${kind}-web`,
+        ...extraClient,
+      });
+      // Each pool gets its own Cognito-prefix hosted-UI domain; custom
+      // domain (auth.dev.primed.ai) replaces these in M2.
+      const domainPrefix = `primedhealth-${props.envName}-${kind}`;
+      const domain = pool.addDomain(`${id}HostedUi`, {
+        cognitoDomain: { domainPrefix },
+      });
+      const domainName = `${domainPrefix}.auth.${this.region}.amazoncognito.com`;
+      return { pool, client, domain, domainName };
+    };
 
-    // --- Providers pool ---
-    const providersPool = new cognito.UserPool(this, 'ProvidersPool', {
-      ...commonPoolProps,
-      userPoolName: `primedhealth-${props.envName}-providers`,
-      mfa: cognito.Mfa.REQUIRED,
-      mfaSecondFactor: { sms: false, otp: true },
-    });
-    const providersClient = providersPool.addClient('ProvidersAppClient', {
-      ...commonClientProps(),
-      userPoolClientName: `primedhealth-${props.envName}-providers-web`,
-    });
-    this.providers = { pool: providersPool, client: providersClient };
-
-    // --- Patients pool (optional MFA, CUSTOM_AUTH for magic-link) ---
-    const patientsPool = new cognito.UserPool(this, 'PatientsPool', {
-      ...commonPoolProps,
-      userPoolName: `primedhealth-${props.envName}-patients`,
-      mfa: cognito.Mfa.OPTIONAL,
-      mfaSecondFactor: { sms: false, otp: true },
-    });
-    const patientsClient = patientsPool.addClient('PatientsAppClient', {
-      ...commonClientProps(),
-      userPoolClientName: `primedhealth-${props.envName}-patients-web`,
+    this.admins = mkPool('Admins', 'admins', cognito.Mfa.REQUIRED);
+    this.providers = mkPool('Providers', 'providers', cognito.Mfa.REQUIRED);
+    this.patients = mkPool('Patients', 'patients', cognito.Mfa.OPTIONAL, {
+      // Patients pool: CUSTOM_AUTH for magic-link/OTP, longer refresh
+      // token TTL for a PWA install.
       authFlows: { custom: true, userSrp: true },
       refreshTokenValidity: Duration.days(90),
     });
-    this.patients = { pool: patientsPool, client: patientsClient };
 
-    // --- Shared hosted-UI domain ---
-    // Cognito-prefix domain is scoped to the admins pool but works for
-    // sibling pools via `?client_id=...` on the hosted UI URL. A custom
-    // domain (auth.dev.primed.ai) replaces this in M2.
-    this.domain = adminsPool.addDomain('HostedUiDomain', {
-      cognitoDomain: {
-        domainPrefix: `primedhealth-${props.envName}`,
-      },
-    });
-
-    // --- Outputs (consumed by ApiStack + web) ---
+    // --- Outputs (consumed by ApiStack + web build-time config) ---
     new CfnOutput(this, 'Region', { value: this.region });
-    new CfnOutput(this, 'HostedUiDomain', {
-      value: `${this.domain.domainName}.auth.${this.region}.amazoncognito.com`,
-    });
-    new CfnOutput(this, 'AdminsPoolId', { value: adminsPool.userPoolId });
-    new CfnOutput(this, 'AdminsClientId', { value: adminsClient.userPoolClientId });
-    new CfnOutput(this, 'ProvidersPoolId', { value: providersPool.userPoolId });
+    new CfnOutput(this, 'AdminsPoolId', { value: this.admins.pool.userPoolId });
+    new CfnOutput(this, 'AdminsClientId', { value: this.admins.client.userPoolClientId });
+    new CfnOutput(this, 'AdminsDomain', { value: this.admins.domainName });
+    new CfnOutput(this, 'ProvidersPoolId', { value: this.providers.pool.userPoolId });
     new CfnOutput(this, 'ProvidersClientId', {
-      value: providersClient.userPoolClientId,
+      value: this.providers.client.userPoolClientId,
     });
-    new CfnOutput(this, 'PatientsPoolId', { value: patientsPool.userPoolId });
+    new CfnOutput(this, 'ProvidersDomain', { value: this.providers.domainName });
+    new CfnOutput(this, 'PatientsPoolId', { value: this.patients.pool.userPoolId });
     new CfnOutput(this, 'PatientsClientId', {
-      value: patientsClient.userPoolClientId,
+      value: this.patients.client.userPoolClientId,
     });
+    new CfnOutput(this, 'PatientsDomain', { value: this.patients.domainName });
 
     // --- Nag suppressions ---
-    NagSuppressions.addResourceSuppressions(patientsPool, [
+    NagSuppressions.addResourceSuppressions(this.patients.pool, [
       {
         id: 'AwsSolutions-COG2',
         reason:
           'Patient pool uses CUSTOM_AUTH for magic-link/OTP; mandatory TOTP MFA on a consumer PWA would harm adoption. Step-up MFA on sensitive actions lands in M6b.',
       },
     ]);
-    for (const p of [adminsPool, providersPool, patientsPool]) {
+    for (const p of [this.admins.pool, this.providers.pool, this.patients.pool]) {
       NagSuppressions.addResourceSuppressions(p, [
         {
           id: 'AwsSolutions-COG8',
