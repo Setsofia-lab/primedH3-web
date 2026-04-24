@@ -54,4 +54,11 @@ export const NAV: Record<Exclude<Role, 'patient'>, NavEntry[]> = {
     { href: '/app/coordinator/patients', label: 'Patients',  icon: 'users',    key: 'patients' },
     { href: '/app/coordinator/providers', label: 'Providers', icon: 'building', key: 'providers' },
   ],
+  // Allied clinicians share the coordinator shell until M7b adds
+  // a dedicated /app/referrals inbox.
+  allied: [
+    { section: 'Referrals' },
+    { href: '/app/coordinator', label: 'Inbox', icon: 'folder', key: 'board' },
+    { href: '/app/coordinator/messages', label: 'Messages', icon: 'message', key: 'messages' },
+  ],
 };

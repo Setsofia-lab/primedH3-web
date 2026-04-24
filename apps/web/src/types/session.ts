@@ -1,4 +1,12 @@
-export type Role = 'admin' | 'surgeon' | 'anesthesia' | 'coordinator' | 'patient';
+export type Role =
+  | 'admin'
+  | 'surgeon'
+  | 'anesthesia'
+  | 'coordinator'
+  | 'allied'
+  | 'patient';
+
+export type Pool = 'admins' | 'providers' | 'patients';
 
 export interface Identity {
   id: string;

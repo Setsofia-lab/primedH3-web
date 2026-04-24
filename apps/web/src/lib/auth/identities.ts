@@ -32,6 +32,13 @@ export const IDENTITIES: Record<Role, Identity> = {
     roleLabel: 'Care coordinator',
     initials: 'PO',
   },
+  allied: {
+    id: 'u_allied_01',
+    name: 'Jordan Park, PT',
+    role: 'allied',
+    roleLabel: 'Allied clinician',
+    initials: 'JP',
+  },
   patient: {
     id: 'u_pt_01',
     name: 'Alex Rivera',
