@@ -30,6 +30,15 @@ export const configSchema = z.object({
   COGNITO_PROVIDERS_CLIENT_ID: z.string().optional(),
   COGNITO_PATIENTS_POOL_ID: z.string().optional(),
   COGNITO_PATIENTS_CLIENT_ID: z.string().optional(),
+
+  // Athena integration — set by ApiStack once the Athena Preview app
+  // is provisioned. When empty, AthenaModule boots in disabled mode;
+  // every call throws "athena not configured" (safe closed-by-default).
+  ATHENA_BASE_URL: z.string().url().optional(),
+  ATHENA_TOKEN_URL: z.string().url().optional(),
+  ATHENA_CLIENT_ID: z.string().optional(),
+  ATHENA_JWK_SECRET_ARN: z.string().optional(),
+  ATHENA_DEFAULT_PRACTICE_ID: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
