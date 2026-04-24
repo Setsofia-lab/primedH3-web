@@ -47,9 +47,15 @@ importers:
       '@primedhealth/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      aws-jwt-verify:
+        specifier: ^5.1.0
+        version: 5.1.1
       drizzle-orm:
         specifier: ^0.38.0
         version: 0.38.4(@types/pg@8.20.0)(@types/react@19.2.14)(pg@8.20.0)(react@19.2.4)
+      fastify:
+        specifier: ^5.0.0
+        version: 5.8.4
       ioredis:
         specifier: ^5.4.1
         version: 5.10.1
@@ -4401,6 +4407,10 @@ packages:
     resolution: {integrity: sha512-XBxZEKH3BY4M1EX6x0qBkmOAj8viErjpww14iH6Z3z6nI0YzjZeJ05eEl7eJwzUgv7NTGagWBS9m/eDJW5+dAg==}
     engines: {node: '>= 18.0.0'}
     hasBin: true
+
+  aws-jwt-verify@5.1.1:
+    resolution: {integrity: sha512-j6whGdGJmQ27agk4ijY8RPv6itb8JLb7SCJ86fEnneTcSBrpxuwL8kLq6y5WVH95aIknyAloEqAsaOLS1J8ITQ==}
+    engines: {node: '>=18.0.0'}
 
   axe-core@4.11.3:
     resolution: {integrity: sha512-zBQouZixDTbo3jMGqHKyePxYxr1e5W8UdTmBQ7sNtaA9M2bE32daxxPLS/jojhKOHxQ7LWwPjfiwf/fhaJWzlg==}
@@ -12933,6 +12943,8 @@ snapshots:
       constructs: 10.6.0
 
   aws-cdk@2.1119.0: {}
+
+  aws-jwt-verify@5.1.1: {}
 
   axe-core@4.11.3: {}
 

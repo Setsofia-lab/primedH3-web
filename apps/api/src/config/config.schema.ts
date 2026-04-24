@@ -19,6 +19,17 @@ export const configSchema = z.object({
   // App metadata (for OpenAPI + /health)
   SERVICE_NAME: z.string().default('primedhealth-api'),
   SERVICE_VERSION: z.string().default('0.0.0'),
+
+  // Cognito — set by ApiStack. Optional in local dev; when the pool
+  // envs are empty, JwtVerifierService refuses every token (every
+  // non-@Public() route → 401). Safe closed-by-default.
+  COGNITO_REGION: z.string().optional(),
+  COGNITO_ADMINS_POOL_ID: z.string().optional(),
+  COGNITO_ADMINS_CLIENT_ID: z.string().optional(),
+  COGNITO_PROVIDERS_POOL_ID: z.string().optional(),
+  COGNITO_PROVIDERS_CLIENT_ID: z.string().optional(),
+  COGNITO_PATIENTS_POOL_ID: z.string().optional(),
+  COGNITO_PATIENTS_CLIENT_ID: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

@@ -4,11 +4,13 @@ import { HealthCheck, HealthCheckService, HealthIndicatorResult } from '@nestjs/
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { sql } from 'drizzle-orm';
 import type Redis from 'ioredis';
+import { Public } from '../auth/public.decorator';
 import type { AppConfig } from '../config/config.module';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 
 @ApiTags('health')
+@Public()
 @Controller()
 export class HealthController {
   constructor(
