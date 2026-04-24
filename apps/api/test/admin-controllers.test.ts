@@ -82,24 +82,54 @@ describe('FacilitiesAdminController', () => {
 });
 
 describe('PatientsAdminController', () => {
-  it('delegates to PatientHydrationService with body inputs', async () => {
-    const hydrate = vi.fn().mockResolvedValue({
-      row: { id: 'p1' },
-      action: 'inserted',
-      athenaVersion: 'v1',
-    });
-    const ctrl = new PatientsAdminController({ hydrate } as never);
+  function mkHydration() {
+    return {
+      hydrate: vi.fn().mockResolvedValue({
+        row: { id: 'p1' },
+        action: 'inserted',
+        athenaVersion: 'v1',
+      }),
+    };
+  }
+
+  function mkPatientsDb(rows: unknown[]) {
+    const offset = vi.fn(() => Promise.resolve(rows));
+    const limit = vi.fn(() => ({ offset }));
+    const orderBy = vi.fn(() => ({ limit }));
+    const where = vi.fn(() => ({ orderBy }));
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+    return { select, _calls: { orderBy, where, limit, offset } };
+  }
+
+  it('delegates hydrate() to PatientHydrationService', async () => {
+    const hydration = mkHydration();
+    const ctrl = new PatientsAdminController(hydration as never, {} as never);
     const out = await ctrl.hydrate({
       facilityId: FACILITY_UUID,
       athenaResourceId: 'a-1128700.E-14914',
       force: true,
     });
-    expect(hydrate).toHaveBeenCalledWith({
+    expect(hydration.hydrate).toHaveBeenCalledWith({
       facilityId: FACILITY_UUID,
       athenaResourceId: 'a-1128700.E-14914',
       athenaPracticeId: undefined,
       force: true,
     });
     expect(out.action).toBe('inserted');
+  });
+
+  it('list() returns items + pagination echo', async () => {
+    const db = mkPatientsDb([{ id: 'p1' }, { id: 'p2' }]);
+    const ctrl = new PatientsAdminController({} as never, db as never);
+    const out = await ctrl.list({
+      facilityId: FACILITY_UUID,
+      limit: 50,
+      offset: 0,
+    });
+    expect(out.items).toHaveLength(2);
+    expect(out.limit).toBe(50);
+    expect(out.offset).toBe(0);
+    expect(db.select).toHaveBeenCalledOnce();
   });
 });

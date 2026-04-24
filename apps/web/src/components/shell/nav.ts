@@ -27,6 +27,8 @@ export const NAV: Record<Exclude<Role, 'patient'>, NavEntry[]> = {
     { href: '/app/admin/agents',  label: 'Agents',        icon: 'cpu',    key: 'agents',  count: 9 },
     { href: '/app/admin/audit',   label: 'Audit log',     icon: 'scroll', key: 'audit' },
     { href: '/app/admin/prompts', label: 'Prompt editor', icon: 'edit',   key: 'prompts', count: 6 },
+    { section: 'Integrations' },
+    { href: '/app/admin/athena',  label: 'Athena',        icon: 'building', key: 'athena' },
   ],
   surgeon: [
     { section: 'My work' },
