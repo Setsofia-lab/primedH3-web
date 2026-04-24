@@ -128,8 +128,13 @@ export class AthenaAuthService implements OnApplicationShutdown {
       grant_type: 'client_credentials',
       client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
       client_assertion: assertion,
-      // Request all scopes on the app; Athena returns the grantable subset.
-      scope: 'system/*.r system/*.rs system/*.s system/Subscription.read system/Subscription.write system/SubscriptionTopic.read',
+      // SMART v2 system-read wildcards, plus Event Notifications reads.
+      // Write scopes are intentionally omitted — per ADR 0002 we don't
+      // push back to Athena; our backend is the source of truth for the
+      // pre-op workflow and Athena is the EHR source of truth that we
+      // mirror. Keep this list a subset of what's granted on the Athena
+      // app (otherwise the token endpoint returns "Invalid Scope").
+      scope: 'system/*.r system/*.rs system/*.s system/Subscription.read system/SubscriptionTopic.read',
     });
 
     const started = Date.now();
