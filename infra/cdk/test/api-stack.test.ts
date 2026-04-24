@@ -50,7 +50,8 @@ describe('full dev stack set', () => {
 
     const t = Template.fromStack(api);
     t.resourceCountIs('AWS::ECS::Cluster', 1);
-    t.resourceCountIs('AWS::ECS::TaskDefinition', 1);
+    // api service task def + one-shot migrate task def
+    t.resourceCountIs('AWS::ECS::TaskDefinition', 2);
     t.resourceCountIs('AWS::ECS::Service', 1);
     t.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
     t.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 1);
