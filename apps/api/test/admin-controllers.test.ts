@@ -7,12 +7,15 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
+import { CasesAdminController } from '../src/admin/cases-admin.controller';
 import { FacilitiesAdminController } from '../src/admin/facilities-admin.controller';
 import { PatientsAdminController } from '../src/admin/patients-admin.controller';
 import { ZodBodyPipe } from '../src/admin/zod-body.pipe';
 import {
+  createCaseSchema,
   createFacilitySchema,
   hydratePatientSchema,
+  listCasesQuerySchema,
 } from '../src/admin/dto/admin.schemas';
 
 const FACILITY_UUID = '550e8400-e29b-41d4-a716-446655440001';
@@ -131,5 +134,58 @@ describe('PatientsAdminController', () => {
     expect(out.limit).toBe(50);
     expect(out.offset).toBe(0);
     expect(db.select).toHaveBeenCalledOnce();
+  });
+});
+
+describe('CasesAdminController', () => {
+  const PATIENT_UUID = '8e1a7ba2-5cf2-4c9f-9c56-ba6e25f2cd18';
+
+  function mkInsertDb(row: unknown) {
+    const returning = vi.fn().mockResolvedValue([row]);
+    const values = vi.fn(() => ({ returning }));
+    const insert = vi.fn(() => ({ values }));
+    const offset = vi.fn(() => Promise.resolve([row]));
+    const limit = vi.fn(() => ({ offset }));
+    const orderBy = vi.fn(() => ({ limit }));
+    const where = vi.fn(() => ({ orderBy }));
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+    return { insert, select };
+  }
+
+  it('defaults status to "referral" on create', async () => {
+    const db = mkInsertDb({ id: 'c1', status: 'referral' });
+    const ctrl = new CasesAdminController(db as never);
+    const out = await ctrl.create({
+      facilityId: FACILITY_UUID,
+      patientId: PATIENT_UUID,
+    });
+    expect(db.insert).toHaveBeenCalledOnce();
+    expect(out.status).toBe('referral');
+  });
+
+  it('accepts explicit status from the enum', () => {
+    const parsed = createCaseSchema.parse({
+      facilityId: FACILITY_UUID,
+      patientId: PATIENT_UUID,
+      status: 'workup',
+    });
+    expect(parsed.status).toBe('workup');
+  });
+
+  it('rejects invalid status', () => {
+    expect(() =>
+      createCaseSchema.parse({
+        facilityId: FACILITY_UUID,
+        patientId: PATIENT_UUID,
+        status: 'not-a-real-status',
+      }),
+    ).toThrow();
+  });
+
+  it('list() query schema applies pagination defaults', () => {
+    const parsed = listCasesQuerySchema.parse({});
+    expect(parsed.limit).toBe(50);
+    expect(parsed.offset).toBe(0);
   });
 });

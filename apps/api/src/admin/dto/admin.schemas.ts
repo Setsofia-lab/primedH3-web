@@ -27,3 +27,35 @@ export const listPatientsQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 export type ListPatientsQuery = z.infer<typeof listPatientsQuerySchema>;
+
+export const caseStatusValues = [
+  'referral',
+  'workup',
+  'clearance',
+  'pre_hab',
+  'ready',
+  'completed',
+  'cancelled',
+] as const;
+
+export const createCaseSchema = z.object({
+  facilityId: z.string().uuid(),
+  patientId: z.string().uuid(),
+  surgeonId: z.string().uuid().optional(),
+  coordinatorId: z.string().uuid().optional(),
+  procedureCode: z.string().max(32).optional(),
+  procedureDescription: z.string().max(2000).optional(),
+  status: z.enum(caseStatusValues).optional(),
+  // ISO-8601 date string — drizzle pgtable column is timestamptz
+  surgeryDate: z.string().datetime().optional(),
+});
+export type CreateCaseInput = z.infer<typeof createCaseSchema>;
+
+export const listCasesQuerySchema = z.object({
+  facilityId: z.string().uuid().optional(),
+  patientId: z.string().uuid().optional(),
+  status: z.enum(caseStatusValues).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type ListCasesQuery = z.infer<typeof listCasesQuerySchema>;

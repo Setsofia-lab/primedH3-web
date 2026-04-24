@@ -6,13 +6,20 @@
  *
  * Responsibilities:
  *  1. Protect /app/* from unauthenticated access.
- *  2. Let /api/auth/*, /login, /auth/signed-out, /onboarding through
+ *  2. Gate /app/admin/* behind the admins pool specifically — providers
+ *     and patients get bounced to their role's landing page.
+ *  3. Let /api/auth/*, /login, /auth/signed-out, /onboarding through
  *     regardless of session state.
- *  3. In dev-auth mode (NEXT_PUBLIC_DEV_AUTH=1), short-circuit: skip
+ *  4. In dev-auth mode (NEXT_PUBLIC_DEV_AUTH=1), short-circuit: skip
  *     the session check entirely and rely on the zustand mock session.
  */
 import { NextResponse, type NextRequest } from 'next/server';
-import { COOKIE, decodeJwtClaims, type IdTokenClaims } from '@/lib/auth/session-cookies';
+import {
+  COOKIE,
+  decodeJwtClaims,
+  isPool,
+  type IdTokenClaims,
+} from '@/lib/auth/session-cookies';
 import { isDevAuthEnabled } from '@/lib/auth/cognito-config';
 
 export function proxy(req: NextRequest) {
@@ -41,6 +48,17 @@ export function proxy(req: NextRequest) {
   const claims = decodeJwtClaims<IdTokenClaims>(idToken);
   if (!claims || (typeof claims.exp === 'number' && claims.exp * 1000 < Date.now())) {
     return redirectToLogin(req);
+  }
+
+  // Role gating for the admin console. The api enforces role=admin
+  // independently via RolesGuard — this is a UX layer so providers
+  // and patients don't see admin nav/pages they can't use.
+  if (pathname.startsWith('/app/admin')) {
+    const pool = req.cookies.get(COOKIE.pool)?.value;
+    if (!isPool(pool) || pool !== 'admins') {
+      const url = new URL('/app/role-router', req.url);
+      return NextResponse.redirect(url);
+    }
   }
 
   return NextResponse.next();
