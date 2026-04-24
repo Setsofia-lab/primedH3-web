@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import { TerminusModule } from '@nestjs/terminus';
+import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from './config/config.module';
 import { DbModule } from './db/db.module';
@@ -42,6 +43,7 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     AthenaModule,
     HealthModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
