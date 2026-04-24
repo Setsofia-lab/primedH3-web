@@ -16,6 +16,7 @@ import { SecretsStack } from '../lib/secrets-stack';
 import { DataStack } from '../lib/data-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
+import { ApiStack } from '../lib/api-stack';
 import { PROJECT, QUALIFIER, resolveEnv, stackName } from '../lib/config';
 
 const app = new App();
@@ -64,6 +65,21 @@ const observability = new ObservabilityStack(app, stackName(typedEnv, 'observabi
   description: `App log groups + SNS alerts topic (${typedEnv})`,
 });
 
+const api = new ApiStack(app, stackName(typedEnv, 'api'), {
+  ...common,
+  envName: typedEnv,
+  vpc: network.vpc,
+  cmk: secrets.cmk,
+  aurora: data.aurora,
+  auroraSecurityGroup: data.auroraSecurityGroup,
+  redis: data.redis,
+  redisSecurityGroup: data.redisSecurityGroup,
+  uploadsBucket: data.uploadsBucket,
+  apiLogGroup: observability.apiLogGroup,
+  athenaPrivateJwk: secrets.athenaPrivateJwk,
+  description: `ECS Fargate api + ALB (${typedEnv})`,
+});
+
 // App-wide tags
 Tags.of(app).add('Project', PROJECT);
 Tags.of(app).add('Env', typedEnv);
@@ -72,7 +88,6 @@ Tags.of(app).add('ManagedBy', 'cdk');
 // Enforce AWS Solutions best practices via cdk-nag on every stack
 Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
-// Keep lint happy — these stacks are referenced by later milestones (M4+).
-void data;
+// Keep lint happy — referenced by later milestones.
 void auth;
-void observability;
+void api;

@@ -33,6 +33,7 @@ export interface DataStackProps extends StackProps {
 
 export class DataStack extends Stack {
   public readonly aurora: rds.DatabaseCluster;
+  public readonly auroraSecurityGroup: ec2.SecurityGroup;
   public readonly redis: elasticache.CfnReplicationGroup;
   public readonly redisSecurityGroup: ec2.SecurityGroup;
   public readonly uploadsBucket: s3.Bucket;
@@ -51,6 +52,7 @@ export class DataStack extends Stack {
       description: 'Aurora Postgres - app-layer access only',
       allowAllOutbound: false,
     });
+    this.auroraSecurityGroup = auroraSg;
 
     this.aurora = new rds.DatabaseCluster(this, 'Aurora', {
       engine: rds.DatabaseClusterEngine.auroraPostgres({

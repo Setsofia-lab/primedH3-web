@@ -29,13 +29,14 @@ Never run `deploy:prod` from a developer machine.
 
 ## Stacks
 
-| Stack | Role | Status |
+| Stack | Role | Milestone |
 |---|---|---|
 | `primedhealth-<env>-network` | VPC, subnets, NAT, flow logs, S3 endpoint | M3.1 |
-| `primedhealth-<env>-secrets` | KMS CMK + Secrets Manager secrets | M3.2 |
+| `primedhealth-<env>-secrets` | KMS CMK + Athena JWK secret | M3.2 |
 | `primedhealth-<env>-data` | Aurora Serverless v2 + Redis + S3 uploads + SQS | M3.3 |
 | `primedhealth-<env>-auth` | Cognito user pools per role group | M3.4 |
-| `primedhealth-<env>-observability` | CloudWatch log groups + alarms + X-Ray | M3.5 |
+| `primedhealth-<env>-observability` | CloudWatch log groups + SNS alerts topic | M3.5 |
+| `primedhealth-<env>-api` | ECS Fargate cluster + task + ALB + autoscaling | M4.5 |
 
 ## Guardrails
 
