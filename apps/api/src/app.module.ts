@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from './config/config.module';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
+import { AthenaModule } from './integrations/athena/athena.module';
 import { RedisModule } from './redis/redis.module';
 
 @Module({
@@ -39,6 +40,7 @@ import { RedisModule } from './redis/redis.module';
     DbModule,
     RedisModule,
     AuthModule,
+    AthenaModule,
     HealthModule,
   ],
 })
