@@ -80,6 +80,19 @@ export const taskAssigneeRoleEnum = pgEnum('task_assignee_role', [
   'patient',
 ]);
 
+/** Audit action verb — coarse-grained classification of every mutation
+ * we care about for HIPAA logging (Constitution §7). */
+export const auditActionEnum = pgEnum('audit_action', [
+  'create',
+  'update',
+  'delete',
+  'read',
+  'login',
+  'invite',
+  'hydrate',
+  'sign',
+]);
+
 /** Appointment lifecycle — mirrors FHIR Appointment.status (R4). */
 export const appointmentStatusEnum = pgEnum('appointment_status', [
   'proposed',

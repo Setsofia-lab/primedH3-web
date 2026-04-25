@@ -6,6 +6,7 @@
  * so no public or role-less routes leak out of this module.
  */
 import { Module } from '@nestjs/common';
+import { AuditAdminController } from './audit-admin.controller';
 import { CasesAdminController } from './cases-admin.controller';
 import { CognitoInviteService } from './cognito-invite.service';
 import { FacilitiesAdminController } from './facilities-admin.controller';
@@ -18,6 +19,7 @@ import { UsersAdminController } from './users-admin.controller';
     PatientsAdminController,
     CasesAdminController,
     UsersAdminController,
+    AuditAdminController,
   ],
   providers: [CognitoInviteService],
 })

@@ -29,6 +29,13 @@
       "when": 1777088000000,
       "tag": "0003_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777094000000,
+      "tag": "0004_audit_events",
+      "breakpoints": true
     }
   ]
 }

@@ -22,15 +22,22 @@ import {
   Inject,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import { and, desc, eq } from 'drizzle-orm';
+import { AuditService } from '../audit/audit.service';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { CurrentUserRow } from '../auth/current-user-row.decorator';
 import { Roles } from '../auth/roles.decorator';
+import type { AuthContext } from '../auth/auth-context';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
-import { patients, type Patient } from '../db/schema';
+import { patients, type Patient, type User } from '../db/schema';
 import { AthenaFhirClient, type FhirPatient } from '../integrations/athena/athena-fhir.client';
 import { PatientHydrationService } from '../integrations/athena/hydration/patient-hydration.service';
 import type { HydratePatientResult } from '../integrations/athena/hydration/patient-hydration.service';
+import { meta } from './audit-meta';
 import {
   hydratePatientSchema,
   listPatientsQuerySchema,
@@ -50,6 +57,7 @@ export class PatientsAdminController {
   constructor(
     private readonly hydration: PatientHydrationService,
     private readonly fhir: AthenaFhirClient,
+    private readonly audit: AuditService,
     @Inject(DB_CLIENT) private readonly db: PrimedDb,
   ) {}
 
@@ -58,13 +66,32 @@ export class PatientsAdminController {
   @ApiOperation({ summary: 'Fetch a patient from Athena and upsert the mirror row' })
   async hydrate(
     @Body(new ZodBodyPipe(hydratePatientSchema)) input: HydratePatientInput,
+    @CurrentUser() ctx: AuthContext,
+    @CurrentUserRow() me: User,
+    @Req() req: FastifyRequest,
   ): Promise<HydratePatientResult> {
-    return this.hydration.hydrate({
+    const result = await this.hydration.hydrate({
       facilityId: input.facilityId,
       athenaResourceId: input.athenaResourceId,
       athenaPracticeId: input.athenaPracticeId,
       force: input.force,
     });
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: 'hydrate',
+        resourceType: 'patient',
+        resourceId: result.row.id,
+        targetFacilityId: result.row.facilityId,
+        after: {
+          athenaResourceId: result.row.athenaResourceId,
+          action: result.action,
+          athenaVersion: result.athenaVersion,
+        },
+      },
+      meta(req),
+    );
+    return result;
   }
 
   @Get()

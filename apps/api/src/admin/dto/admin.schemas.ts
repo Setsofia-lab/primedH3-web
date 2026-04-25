@@ -60,6 +60,24 @@ export const listCasesQuerySchema = z.object({
 });
 export type ListCasesQuery = z.infer<typeof listCasesQuerySchema>;
 
+// Audit -----------------------------------------------------------
+
+export const auditActionValues = [
+  'create', 'update', 'delete', 'read', 'login', 'invite', 'hydrate', 'sign',
+] as const;
+
+export const listAuditQuerySchema = z.object({
+  action: z.enum(auditActionValues).optional(),
+  actorUserId: z.string().uuid().optional(),
+  resourceType: z.string().min(1).max(32).optional(),
+  resourceId: z.string().min(1).max(128).optional(),
+  facilityId: z.string().uuid().optional(),
+  since: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type ListAuditQuery = z.infer<typeof listAuditQuerySchema>;
+
 /**
  * Athena patient search — accepts the same parameter combinations Athena
  * accepts ([_id], [identifier], [name], [family,birthdate], [family,

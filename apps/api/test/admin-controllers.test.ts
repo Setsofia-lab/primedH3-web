@@ -57,17 +57,29 @@ describe('ZodBodyPipe', () => {
   });
 });
 
+// Mock audit service that swallows everything (and a fake req/ctx/user
+// to pass through the controllers' new audit-aware signatures).
+const fakeAudit = {
+  record: vi.fn().mockResolvedValue(undefined),
+  fromContext: vi.fn(() => ({})),
+};
+const fakeCtx = { sub: 'sub', email: 'a@b.c', pool: 'admins', role: 'admin', groups: [] } as never;
+const fakeMe = { id: 'u1', email: 'a@b.c', role: 'admin' } as never;
+const fakeReq = { id: 'req-1', headers: {}, ip: '127.0.0.1' } as never;
+
 describe('FacilitiesAdminController', () => {
   it('inserts a facility and returns the row', async () => {
     const db = mkDb();
-    const ctrl = new FacilitiesAdminController(db as never);
-    const out = await ctrl.create({
-      name: 'Primary Hospital',
-      athenaPracticeId: '1128700',
-      timezone: 'America/New_York',
-    });
+    const ctrl = new FacilitiesAdminController(db as never, fakeAudit as never);
+    const out = await ctrl.create(
+      { name: 'Primary Hospital', athenaPracticeId: '1128700', timezone: 'America/New_York' },
+      fakeCtx,
+      fakeMe,
+      fakeReq,
+    );
     expect(db.insert).toHaveBeenCalledOnce();
     expect(out.name).toBe('Primary Hospital');
+    expect(fakeAudit.record).toHaveBeenCalled();
   });
 
   it('defaults timezone via the zod schema', () => {
@@ -77,7 +89,7 @@ describe('FacilitiesAdminController', () => {
 
   it('lists facilities', async () => {
     const db = mkDb();
-    const ctrl = new FacilitiesAdminController(db as never);
+    const ctrl = new FacilitiesAdminController(db as never, fakeAudit as never);
     const out = await ctrl.list();
     expect(out).toHaveLength(1);
     expect(db.select).toHaveBeenCalledOnce();
@@ -107,12 +119,22 @@ describe('PatientsAdminController', () => {
 
   it('delegates hydrate() to PatientHydrationService', async () => {
     const hydration = mkHydration();
-    const ctrl = new PatientsAdminController(hydration as never, {} as never, {} as never);
-    const out = await ctrl.hydrate({
-      facilityId: FACILITY_UUID,
-      athenaResourceId: 'a-1128700.E-14914',
-      force: true,
-    });
+    const ctrl = new PatientsAdminController(
+      hydration as never,
+      {} as never,
+      fakeAudit as never,
+      {} as never,
+    );
+    const out = await ctrl.hydrate(
+      {
+        facilityId: FACILITY_UUID,
+        athenaResourceId: 'a-1128700.E-14914',
+        force: true,
+      },
+      fakeCtx,
+      fakeMe,
+      fakeReq,
+    );
     expect(hydration.hydrate).toHaveBeenCalledWith({
       facilityId: FACILITY_UUID,
       athenaResourceId: 'a-1128700.E-14914',
@@ -124,7 +146,12 @@ describe('PatientsAdminController', () => {
 
   it('list() returns items + pagination echo', async () => {
     const db = mkPatientsDb([{ id: 'p1' }, { id: 'p2' }]);
-    const ctrl = new PatientsAdminController({} as never, {} as never, db as never);
+    const ctrl = new PatientsAdminController(
+      {} as never,
+      {} as never,
+      fakeAudit as never,
+      db as never,
+    );
     const out = await ctrl.list({
       facilityId: FACILITY_UUID,
       limit: 50,
@@ -154,12 +181,14 @@ describe('CasesAdminController', () => {
   }
 
   it('defaults status to "referral" on create', async () => {
-    const db = mkInsertDb({ id: 'c1', status: 'referral' });
-    const ctrl = new CasesAdminController(db as never);
-    const out = await ctrl.create({
-      facilityId: FACILITY_UUID,
-      patientId: PATIENT_UUID,
-    });
+    const db = mkInsertDb({ id: 'c1', status: 'referral', facilityId: FACILITY_UUID });
+    const ctrl = new CasesAdminController(db as never, fakeAudit as never);
+    const out = await ctrl.create(
+      { facilityId: FACILITY_UUID, patientId: PATIENT_UUID },
+      fakeCtx,
+      fakeMe,
+      fakeReq,
+    );
     expect(db.insert).toHaveBeenCalledOnce();
     expect(out.status).toBe('referral');
   });

@@ -31,13 +31,19 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import { and, asc, eq, inArray, isNull, or, type SQL } from 'drizzle-orm';
-import { Roles } from '../auth/roles.decorator';
+import { AuditService } from '../audit/audit.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentUserRow } from '../auth/current-user-row.decorator';
+import { Roles } from '../auth/roles.decorator';
+import type { AuthContext } from '../auth/auth-context';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
 import { cases, tasks, type Task, type User } from '../db/schema';
+import { meta } from '../admin/audit-meta';
 import {
   createTaskSchema,
   listTasksQuerySchema,
@@ -54,7 +60,10 @@ import { ZodQueryPipe } from '../admin/zod-query.pipe';
 @Controller('tasks')
 @Roles('admin', 'surgeon', 'anesthesia', 'coordinator', 'allied')
 export class TasksController {
-  constructor(@Inject(DB_CLIENT) private readonly db: PrimedDb) {}
+  constructor(
+    @Inject(DB_CLIENT) private readonly db: PrimedDb,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List tasks (filter by case / status / role / mine)' })
@@ -102,8 +111,10 @@ export class TasksController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a task on a case' })
   async create(
+    @CurrentUser() ctx: AuthContext,
     @CurrentUserRow() me: User,
     @Body(new ZodBodyPipe(createTaskSchema)) input: CreateTaskInput,
+    @Req() req: FastifyRequest,
   ): Promise<Task> {
     const caseRow = await this.fetchCaseIfVisible(me, input.caseId);
     const [row] = await this.db
@@ -119,15 +130,28 @@ export class TasksController {
         createdBy: me.id,
       })
       .returning();
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: 'create',
+        resourceType: 'task',
+        resourceId: row!.id,
+        targetFacilityId: row!.facilityId,
+        after: row,
+      },
+      meta(req),
+    );
     return row!;
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a task (status, assignment, due date)' })
   async update(
+    @CurrentUser() ctx: AuthContext,
     @CurrentUserRow() me: User,
     @Param('id') id: string,
     @Body(new ZodBodyPipe(updateTaskSchema)) input: UpdateTaskInput,
+    @Req() req: FastifyRequest,
   ): Promise<Task> {
     const [existing] = await this.db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
     if (!existing) throw new NotFoundException(`task ${id} not found`);
@@ -158,6 +182,19 @@ export class TasksController {
       .set(patch)
       .where(eq(tasks.id, id))
       .returning();
+    const isSign = input.status === 'done' && existing.assigneeRole === 'surgeon';
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: isSign ? 'sign' : 'update',
+        resourceType: 'task',
+        resourceId: row!.id,
+        targetFacilityId: row!.facilityId,
+        before: existing,
+        after: row,
+      },
+      meta(req),
+    );
     return row!;
   }
 

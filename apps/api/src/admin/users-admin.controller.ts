@@ -23,10 +23,16 @@ import {
   Inject,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
+import { AuditService } from '../audit/audit.service';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { CurrentUserRow } from '../auth/current-user-row.decorator';
 import { Roles } from '../auth/roles.decorator';
+import type { AuthContext } from '../auth/auth-context';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
 import { users, type User } from '../db/schema';
 import { CognitoInviteService } from './cognito-invite.service';
@@ -38,6 +44,7 @@ import {
 } from './dto/admin.schemas';
 import { ZodBodyPipe } from './zod-body.pipe';
 import { ZodQueryPipe } from './zod-query.pipe';
+import { meta } from './audit-meta';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -46,6 +53,7 @@ import { ZodQueryPipe } from './zod-query.pipe';
 export class UsersAdminController {
   constructor(
     private readonly inviter: CognitoInviteService,
+    private readonly audit: AuditService,
     @Inject(DB_CLIENT) private readonly db: PrimedDb,
   ) {}
 
@@ -56,8 +64,31 @@ export class UsersAdminController {
   })
   async invite(
     @Body(new ZodBodyPipe(inviteUserSchema)) input: InviteUserInput,
+    @CurrentUser() ctx: AuthContext,
+    @CurrentUserRow() me: User,
+    @Req() req: FastifyRequest,
   ): Promise<{ user: User; cognitoSub: string; userStatus: string }> {
-    return this.inviter.invite(input);
+    const result = await this.inviter.invite(input);
+    // Audit: don't log the cognito_sub or password reset link in the
+    // event payload; capture only what's safe to retain.
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: 'invite',
+        resourceType: 'user',
+        resourceId: result.user.id,
+        targetFacilityId: result.user.facilityId ?? null,
+        after: {
+          email: result.user.email,
+          role: result.user.role,
+          firstName: result.user.firstName,
+          lastName: result.user.lastName,
+          patientLinked: input.role === 'patient' && Boolean(input.patientId),
+        },
+      },
+      meta(req),
+    );
+    return result;
   }
 
   @Get()

@@ -19,12 +19,19 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import { and, desc, eq, type SQL } from 'drizzle-orm';
+import { AuditService } from '../audit/audit.service';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { CurrentUserRow } from '../auth/current-user-row.decorator';
 import { Roles } from '../auth/roles.decorator';
+import type { AuthContext } from '../auth/auth-context';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
-import { cases, type Case } from '../db/schema';
+import { cases, type Case, type User } from '../db/schema';
+import { meta } from './audit-meta';
 import {
   createCaseSchema,
   listCasesQuerySchema,
@@ -41,13 +48,19 @@ import { ZodQueryPipe } from './zod-query.pipe';
 @Controller('admin/cases')
 @Roles('admin')
 export class CasesAdminController {
-  constructor(@Inject(DB_CLIENT) private readonly db: PrimedDb) {}
+  constructor(
+    @Inject(DB_CLIENT) private readonly db: PrimedDb,
+    private readonly audit: AuditService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a case for a mirrored patient' })
   async create(
     @Body(new ZodBodyPipe(createCaseSchema)) input: CreateCaseInput,
+    @CurrentUser() ctx: AuthContext,
+    @CurrentUserRow() me: User,
+    @Req() req: FastifyRequest,
   ): Promise<Case> {
     const [row] = await this.db
       .insert(cases)
@@ -60,8 +73,20 @@ export class CasesAdminController {
         procedureDescription: input.procedureDescription ?? null,
         status: input.status ?? 'referral',
         surgeryDate: input.surgeryDate ? new Date(input.surgeryDate) : null,
+        createdBy: me.id,
       })
       .returning();
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: 'create',
+        resourceType: 'case',
+        resourceId: row!.id,
+        targetFacilityId: row!.facilityId,
+        after: row,
+      },
+      meta(req),
+    );
     return row!;
   }
 
@@ -109,7 +134,13 @@ export class CasesAdminController {
   async update(
     @Param('id') id: string,
     @Body(new ZodBodyPipe(updateCaseSchema)) input: UpdateCaseInput,
+    @CurrentUser() ctx: AuthContext,
+    @CurrentUserRow() me: User,
+    @Req() req: FastifyRequest,
   ): Promise<Case> {
+    const [before] = await this.db.select().from(cases).where(eq(cases.id, id)).limit(1);
+    if (!before) throw new NotFoundException(`case ${id} not found`);
+
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if ('surgeonId' in input) patch.surgeonId = input.surgeonId ?? null;
     if ('coordinatorId' in input) patch.coordinatorId = input.coordinatorId ?? null;
@@ -135,6 +166,18 @@ export class CasesAdminController {
       .where(eq(cases.id, id))
       .returning();
     if (!row) throw new NotFoundException(`case ${id} not found`);
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: 'update',
+        resourceType: 'case',
+        resourceId: row.id,
+        targetFacilityId: row.facilityId,
+        before,
+        after: row,
+      },
+      meta(req),
+    );
     return row;
   }
 }
