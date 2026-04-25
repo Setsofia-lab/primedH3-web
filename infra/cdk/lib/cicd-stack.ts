@@ -46,7 +46,18 @@ export class CicdStack extends Stack {
       clientIds: ['sts.amazonaws.com'],
     });
 
-    const subject = `repo:${props.githubRepo}:ref:refs/heads/${props.branch}`;
+    // Two valid subject patterns from the GitHub OIDC provider:
+    //   - When the workflow uses `environment: dev|prod`, the sub is
+    //     `repo:OWNER/REPO:environment:<env>` (this is what we use for
+    //     deploy-backend.yml since it has an `environment` block).
+    //   - When the workflow doesn't use environments, the sub is
+    //     `repo:OWNER/REPO:ref:refs/heads/<branch>`.
+    // We trust both so future workflows on the same env work without a
+    // CDK redeploy.
+    const subjects = [
+      `repo:${props.githubRepo}:environment:${props.envName}`,
+      `repo:${props.githubRepo}:ref:refs/heads/${props.branch}`,
+    ];
 
     const deployer = new iam.Role(this, 'DeployerRole', {
       roleName: `primedhealth-${props.envName}-gh-deployer`,
@@ -55,12 +66,14 @@ export class CicdStack extends Stack {
         {
           StringEquals: {
             'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-            'token.actions.githubusercontent.com:sub': subject,
+          },
+          'ForAnyValue:StringEquals': {
+            'token.actions.githubusercontent.com:sub': subjects,
           },
         },
         'sts:AssumeRoleWithWebIdentity',
       ),
-      description: `GitHub Actions deployer for ${props.envName} (${subject})`,
+      description: `GitHub Actions deployer for ${props.envName} (${subjects.join(' OR ')})`,
       maxSessionDuration: undefined,
     });
 

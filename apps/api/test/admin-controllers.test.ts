@@ -182,7 +182,12 @@ describe('CasesAdminController', () => {
 
   it('defaults status to "referral" on create', async () => {
     const db = mkInsertDb({ id: 'c1', status: 'referral', facilityId: FACILITY_UUID });
-    const ctrl = new CasesAdminController(db as never, fakeAudit as never);
+    const fakeIntake = { onCaseCreated: vi.fn().mockResolvedValue(undefined) };
+    const ctrl = new CasesAdminController(
+      db as never,
+      fakeAudit as never,
+      fakeIntake as never,
+    );
     const out = await ctrl.create(
       { facilityId: FACILITY_UUID, patientId: PATIENT_UUID },
       fakeCtx,

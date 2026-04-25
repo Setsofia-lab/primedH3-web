@@ -37,6 +37,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentUserRow } from '../auth/current-user-row.decorator';
 import { Roles } from '../auth/roles.decorator';
 import type { AuthContext } from '../auth/auth-context';
+import { IntakeOrchestratorService } from './intake-orchestrator.service';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
 import { cases, patients, type Case, type User } from '../db/schema';
 import {
@@ -57,6 +58,7 @@ export class CasesController {
   constructor(
     @Inject(DB_CLIENT) private readonly db: PrimedDb,
     private readonly audit: AuditService,
+    private readonly intake: IntakeOrchestratorService,
   ) {}
 
   @Post()
@@ -126,6 +128,8 @@ export class CasesController {
       },
       meta(req),
     );
+    // M9 stand-in: seed the default workup checklist.
+    await this.intake.onCaseCreated(row!, me.id);
     return row!;
   }
 
