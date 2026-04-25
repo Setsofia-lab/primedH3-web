@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "vitest run",
+    "test:unit": "vitest run",
     "test:watch": "vitest",
     "migrate:generate": "drizzle-kit generate",
     "migrate:run": "tsx src/db/migrate.ts",

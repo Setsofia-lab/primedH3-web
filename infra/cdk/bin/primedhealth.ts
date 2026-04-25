@@ -17,6 +17,7 @@ import { DataStack } from '../lib/data-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
 import { ApiStack } from '../lib/api-stack';
+import { CicdStack } from '../lib/cicd-stack';
 import { PROJECT, QUALIFIER, resolveEnv, stackName } from '../lib/config';
 
 const app = new App();
@@ -92,6 +93,17 @@ const api = new ApiStack(app, stackName(typedEnv, 'api'), {
   description: `ECS Fargate api + ALB (${typedEnv})`,
 });
 
+// CI/CD — GitHub Actions OIDC trust + deployer role.
+// Branch-per-env: dev <- staging, prod <- main.
+const cicd = new CicdStack(app, stackName(typedEnv, 'cicd'), {
+  ...common,
+  envName: typedEnv,
+  githubRepo: 'Setsofia-lab/primedH3-web',
+  branch: typedEnv === 'prod' ? 'main' : 'staging',
+  clusterName: `primedhealth-${typedEnv}`,
+  description: `GitHub Actions OIDC + deployer role (${typedEnv})`,
+});
+
 // App-wide tags
 Tags.of(app).add('Project', PROJECT);
 Tags.of(app).add('Env', typedEnv);
@@ -100,5 +112,6 @@ Tags.of(app).add('ManagedBy', 'cdk');
 // Enforce AWS Solutions best practices via cdk-nag on every stack
 Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
-// Keep lint happy — api is referenced implicitly through CFN exports.
+// Keep lint happy — referenced implicitly through CFN outputs.
 void api;
+void cicd;
