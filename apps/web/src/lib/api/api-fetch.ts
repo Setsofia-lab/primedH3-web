@@ -12,7 +12,13 @@
  * defaults to http://localhost:3001.
  */
 import { cookies } from 'next/headers';
+import type { paths, Response2xx, RequestBody } from '@primedhealth/shared-types';
 import { COOKIE } from '@/lib/auth/session-cookies';
+
+// Re-export the OpenAPI helper types for callers — proxy routes and
+// page components can lean on these without importing from
+// @primedhealth/shared-types directly each time.
+export type { paths, Response2xx, RequestBody };
 
 export class ApiAuthError extends Error {
   constructor() {
