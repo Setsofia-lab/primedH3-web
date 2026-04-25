@@ -39,10 +39,14 @@ jobs:
         with: { node-version: 22, cache: 'pnpm' }
       - run: pnpm install --frozen-lockfile
 
-      # Pre-deploy gate: build + test must pass.
+      # Pre-deploy gate: typecheck + test must pass.
+      # Intentionally NOT running `pnpm build` here — the Dockerfile
+      # rebuilds inside the image, and a host-side build leaves
+      # `apps/api/dist/` in the workspace that can pollute the CDK
+      # docker context (we've seen ECS circuit-break on a stale
+      # main.js layout).
       - run: pnpm typecheck
       - run: pnpm test:unit
-      - run: pnpm build
 
       - name: Resolve AWS account by env
         id: aws
