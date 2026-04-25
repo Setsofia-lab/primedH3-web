@@ -9,6 +9,7 @@
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { DocumentsPanel } from '@/components/documents/DocumentsPanel';
 import { MessagesPanel } from '@/components/messages/MessagesPanel';
 import { TasksPanel } from '@/components/tasks/TasksPanel';
 
@@ -109,6 +110,10 @@ export default function AnesthesiaCaseDetailPage({ params }: { params: Promise<{
 
       <div style={{ marginTop: 24 }}>
         <MessagesPanel caseId={c.id} />
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <DocumentsPanel caseId={c.id} />
       </div>
 
       <div className="card" style={{ marginTop: 24 }}>

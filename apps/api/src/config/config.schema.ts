@@ -39,6 +39,11 @@ export const configSchema = z.object({
   ATHENA_CLIENT_ID: z.string().optional(),
   ATHENA_JWK_SECRET_ARN: z.string().optional(),
   ATHENA_DEFAULT_PRACTICE_ID: z.string().optional(),
+
+  // S3 — uploads bucket for documents (M7.8). Required when documents
+  // module is in use; left optional so local dev without S3 still boots.
+  UPLOADS_BUCKET: z.string().optional(),
+  AWS_REGION: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

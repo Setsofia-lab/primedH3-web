@@ -76,6 +76,30 @@ export const listMessagesQuerySchema = z.object({
 });
 export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>;
 
+// Documents -------------------------------------------------------
+
+export const documentKindValues = [
+  'consent', 'lab', 'imaging', 'history', 'discharge', 'education', 'other',
+] as const;
+
+export const requestUploadSchema = z.object({
+  caseId: z.string().uuid(),
+  name: z.string().min(1).max(256),
+  contentType: z.string().min(1).max(128),
+  sizeBytes: z.number().int().min(0).max(50 * 1024 * 1024).optional(), // 50 MB cap
+  kind: z.enum(documentKindValues).optional(),
+  patientVisible: z.boolean().optional(),
+});
+export type RequestUploadInput = z.infer<typeof requestUploadSchema>;
+
+export const listDocumentsQuerySchema = z.object({
+  caseId: z.string().uuid().optional(),
+  kind: z.enum(documentKindValues).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type ListDocumentsQuery = z.infer<typeof listDocumentsQuerySchema>;
+
 // Audit -----------------------------------------------------------
 
 export const auditActionValues = [

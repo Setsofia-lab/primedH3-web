@@ -93,6 +93,17 @@ export const auditActionEnum = pgEnum('audit_action', [
   'sign',
 ]);
 
+/** Document classification (drives default visibility + renderer). */
+export const documentKindEnum = pgEnum('document_kind', [
+  'consent',
+  'lab',
+  'imaging',
+  'history',
+  'discharge',
+  'education',
+  'other',
+]);
+
 /** Appointment lifecycle — mirrors FHIR Appointment.status (R4). */
 export const appointmentStatusEnum = pgEnum('appointment_status', [
   'proposed',

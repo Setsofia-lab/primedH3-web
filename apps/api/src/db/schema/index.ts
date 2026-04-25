@@ -20,3 +20,4 @@ export * from './cases';
 export * from './tasks';
 export * from './audit-events';
 export * from './messages';
+export * from './documents';

@@ -132,6 +132,25 @@ export class DataStack extends Stack {
       ],
       removalPolicy: destroyPolicy,
       autoDeleteObjects: !isProd,
+      // CORS so browsers on the web app can PUT directly to S3 via
+      // presigned URLs (M7.8 documents). The bucket stays private —
+      // CORS only governs cross-origin browser requests; presign is the
+      // gate.
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+          allowedOrigins: isProd
+            ? ['https://app.primed.ai', 'https://staging.primed.ai']
+            : [
+                'http://localhost:3000',
+                'https://primedh3-web.vercel.app',
+                'https://staging.primed.ai',
+              ],
+          allowedHeaders: ['*'],
+          exposedHeaders: ['ETag'],
+          maxAge: 3000,
+        },
+      ],
       // Server access logs land in a dedicated log bucket in M8. For now
       // CloudTrail + VPC Flow Logs cover the audit need.
     });
