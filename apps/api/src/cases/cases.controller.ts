@@ -16,32 +16,118 @@
  * queue filter and see "ready" cases.
  */
 import {
+  Body,
   Controller,
   ForbiddenException,
   Get,
+  HttpCode,
+  HttpStatus,
   Inject,
   NotFoundException,
   Param,
+  Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import { and, desc, eq, inArray, type SQL } from 'drizzle-orm';
-import { Roles } from '../auth/roles.decorator';
+import { AuditService } from '../audit/audit.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentUserRow } from '../auth/current-user-row.decorator';
+import { Roles } from '../auth/roles.decorator';
+import type { AuthContext } from '../auth/auth-context';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
-import { cases, type Case, type User } from '../db/schema';
+import { cases, patients, type Case, type User } from '../db/schema';
 import {
+  createCaseSchema,
   listCasesQuerySchema,
+  type CreateCaseInput,
   type ListCasesQuery,
 } from '../admin/dto/admin.schemas';
+import { ZodBodyPipe } from '../admin/zod-body.pipe';
 import { ZodQueryPipe } from '../admin/zod-query.pipe';
+import { meta } from '../admin/audit-meta';
 
 @ApiTags('cases')
 @ApiBearerAuth()
 @Controller('cases')
 @Roles('admin', 'surgeon', 'anesthesia', 'coordinator', 'allied')
 export class CasesController {
-  constructor(@Inject(DB_CLIENT) private readonly db: PrimedDb) {}
+  constructor(
+    @Inject(DB_CLIENT) private readonly db: PrimedDb,
+    private readonly audit: AuditService,
+  ) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Create a case (role-aware: surgeon auto-assigns to themselves; ' +
+      'coordinator/admin pick from their facility)',
+  })
+  async create(
+    @CurrentUser() ctx: AuthContext,
+    @CurrentUserRow() me: User,
+    @Body(new ZodBodyPipe(createCaseSchema)) input: CreateCaseInput,
+    @Req() req: FastifyRequest,
+  ): Promise<Case> {
+    if (me.role === 'patient' || me.role === 'allied') {
+      throw new ForbiddenException(`role ${me.role} cannot create cases`);
+    }
+    // Validate the patient is at the caller's facility (or any, for admins).
+    const [pt] = await this.db
+      .select()
+      .from(patients)
+      .where(eq(patients.id, input.patientId))
+      .limit(1);
+    if (!pt) throw new NotFoundException(`patient ${input.patientId} not found`);
+    if (me.role !== 'admin' && (!me.facilityId || pt.facilityId !== me.facilityId)) {
+      throw new ForbiddenException('patient not at your facility');
+    }
+
+    // Surgeon-driven creation: auto-assign to me, ignore any input.surgeonId
+    // override unless the caller is admin.
+    const surgeonId =
+      me.role === 'surgeon'
+        ? me.id
+        : me.role === 'admin'
+        ? input.surgeonId ?? null
+        : input.surgeonId ?? null;
+    const facilityId = me.role === 'admin' ? input.facilityId : pt.facilityId;
+    if (me.role !== 'admin' && input.facilityId !== facilityId) {
+      throw new ForbiddenException('facility mismatch — patient is at a different facility');
+    }
+
+    const [row] = await this.db
+      .insert(cases)
+      .values({
+        facilityId,
+        patientId: input.patientId,
+        surgeonId,
+        coordinatorId: input.coordinatorId ?? null,
+        procedureCode: input.procedureCode ?? null,
+        procedureDescription: input.procedureDescription ?? null,
+        status: input.status ?? 'referral',
+        surgeryDate: input.surgeryDate ? new Date(input.surgeryDate) : null,
+        createdBy: me.id,
+      })
+      .returning();
+
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: 'create',
+        resourceType: 'case',
+        resourceId: row!.id,
+        targetFacilityId: row!.facilityId,
+        after: row,
+        note: `created by ${me.role}`,
+      },
+      meta(req),
+    );
+    return row!;
+  }
 
   @Get()
   @ApiOperation({ summary: 'List cases visible to the current user (role-scoped)' })
