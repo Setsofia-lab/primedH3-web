@@ -59,6 +59,27 @@ export const caseStatusEnum = pgEnum('case_status', [
   'cancelled',
 ]);
 
+/** Per-case workup task lifecycle. Used by IntakeOrchestrator + the
+ * coordinator board (Constitution §3.4 + §4 Agent 8 TaskTracker). */
+export const taskStatusEnum = pgEnum('task_status', [
+  'pending',
+  'in_progress',
+  'done',
+  'blocked',
+]);
+
+/** Which app role can fulfil this task. `assignee_user_id` (when set)
+ * narrows it to a specific person; otherwise any user with that role
+ * at the facility can pick it up. */
+export const taskAssigneeRoleEnum = pgEnum('task_assignee_role', [
+  'admin',
+  'surgeon',
+  'anesthesia',
+  'coordinator',
+  'allied',
+  'patient',
+]);
+
 /** Appointment lifecycle — mirrors FHIR Appointment.status (R4). */
 export const appointmentStatusEnum = pgEnum('appointment_status', [
   'proposed',

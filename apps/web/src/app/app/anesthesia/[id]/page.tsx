@@ -9,6 +9,7 @@
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { TasksPanel } from '@/components/tasks/TasksPanel';
 
 type CaseStatus =
   | 'referral' | 'workup' | 'clearance' | 'pre_hab' | 'ready' | 'completed' | 'cancelled';
@@ -99,6 +100,10 @@ export default function AnesthesiaCaseDetailPage({ params }: { params: Promise<{
           <span className={`status-pill ${c.status}`}>{c.status}</span>
           <div className="when">Surgery <em>{c.surgeryDate ? fmtDate(c.surgeryDate) : 'unscheduled'}</em></div>
         </div>
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <TasksPanel caseId={c.id} canCreate />
       </div>
 
       <div className="card" style={{ marginTop: 24 }}>

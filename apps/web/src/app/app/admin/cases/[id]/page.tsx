@@ -11,6 +11,7 @@
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { TasksPanel } from '@/components/tasks/TasksPanel';
 
 type CaseStatus =
   | 'referral' | 'workup' | 'clearance' | 'pre_hab' | 'ready' | 'completed' | 'cancelled';
@@ -246,6 +247,8 @@ export default function AdminCaseDetailPage({ params }: { params: Promise<{ id: 
               </div>
             </div>
           </div>
+
+          <TasksPanel caseId={c.id} canCreate />
 
           <div className="card" style={{ padding: '1.25rem' }}>
             <div className="card-head" style={{ marginBottom: '0.5rem' }}><h3>Edit</h3></div>

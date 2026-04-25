@@ -32,8 +32,34 @@ async function loadFor(role: Role): Promise<NavCounts> {
       users: u?.items.length,
     };
   }
-  // Provider role counts (their own cases) land in M7.4 — return empty
-  // so no fake badges render.
+  if (role === 'surgeon') {
+    const [c, t] = await Promise.all([
+      jsonOrNull<{ items: unknown[] }>(await fetch('/api/cases?limit=200')),
+      jsonOrNull<{ items: { status: string }[] }>(
+        await fetch('/api/tasks?mine=true&limit=200'),
+      ),
+    ]);
+    return {
+      cases: c?.items.length,
+      tasks: t?.items.filter((x) => x.status !== 'done').length,
+    };
+  }
+  if (role === 'coordinator' || role === 'allied') {
+    const [c, t] = await Promise.all([
+      jsonOrNull<{ items: unknown[] }>(await fetch('/api/cases?limit=200')),
+      jsonOrNull<{ items: { status: string }[] }>(await fetch('/api/tasks?limit=500')),
+    ]);
+    return {
+      board: c?.items.length,
+      tasks: t?.items.filter((x) => x.status !== 'done').length,
+    };
+  }
+  if (role === 'anesthesia') {
+    const queue = await jsonOrNull<{ items: unknown[] }>(await fetch('/api/cases?limit=200'));
+    return {
+      queue: queue?.items.length,
+    };
+  }
   return {};
 }
 

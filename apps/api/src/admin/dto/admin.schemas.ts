@@ -79,6 +79,48 @@ export const searchAthenaPatientsSchema = z.object({
 });
 export type SearchAthenaPatientsQuery = z.infer<typeof searchAthenaPatientsSchema>;
 
+// Tasks ----------------------------------------------------------
+
+export const taskStatusValues = ['pending', 'in_progress', 'done', 'blocked'] as const;
+export const taskAssigneeRoleValues = [
+  'admin', 'surgeon', 'anesthesia', 'coordinator', 'allied', 'patient',
+] as const;
+
+export const createTaskSchema = z.object({
+  caseId: z.string().uuid(),
+  title: z.string().min(1).max(256),
+  description: z.string().max(4000).optional(),
+  assigneeRole: z.enum(taskAssigneeRoleValues),
+  assigneeUserId: z.string().uuid().optional(),
+  dueDate: z.string().datetime().optional(),
+});
+export type CreateTaskInput = z.infer<typeof createTaskSchema>;
+
+export const updateTaskSchema = z.object({
+  title: z.string().min(1).max(256).optional(),
+  description: z.string().max(4000).nullable().optional(),
+  status: z.enum(taskStatusValues).optional(),
+  assigneeRole: z.enum(taskAssigneeRoleValues).optional(),
+  assigneeUserId: z.string().uuid().nullable().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+});
+export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+
+export const listTasksQuerySchema = z.object({
+  caseId: z.string().uuid().optional(),
+  status: z.enum(taskStatusValues).optional(),
+  assigneeRole: z.enum(taskAssigneeRoleValues).optional(),
+  mine: z
+    .union([z.literal('true'), z.literal('false'), z.boolean()])
+    .optional()
+    .transform((v) => v === true || v === 'true'),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
+
+// Update case ----------------------------------------------------
+
 export const updateCaseSchema = z.object({
   surgeonId: z.string().uuid().nullable().optional(),
   coordinatorId: z.string().uuid().nullable().optional(),

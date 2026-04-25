@@ -17,3 +17,4 @@ export * from './users';
 export * from './patients';
 export * from './appointments';
 export * from './cases';
+export * from './tasks';
