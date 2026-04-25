@@ -11,6 +11,7 @@
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { MessagesPanel } from '@/components/messages/MessagesPanel';
 import { TasksPanel } from '@/components/tasks/TasksPanel';
 
 type CaseStatus =
@@ -160,6 +161,8 @@ export default function SurgeonCaseDetailPage({ params }: { params: Promise<{ id
           </div>
 
           <TasksPanel caseId={c.id} canCreate />
+
+          <MessagesPanel caseId={c.id} />
 
           <div className="card" style={{ padding: '1.25rem' }}>
             <div className="card-head" style={{ marginBottom: '0.5rem' }}><h3>Agent activity</h3></div>

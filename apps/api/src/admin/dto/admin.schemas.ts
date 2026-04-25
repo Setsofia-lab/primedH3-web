@@ -60,6 +60,22 @@ export const listCasesQuerySchema = z.object({
 });
 export type ListCasesQuery = z.infer<typeof listCasesQuerySchema>;
 
+// Messages --------------------------------------------------------
+
+export const createMessageSchema = z.object({
+  caseId: z.string().uuid(),
+  body: z.string().min(1).max(8000),
+  patientVisible: z.boolean().optional(),
+});
+export type CreateMessageInput = z.infer<typeof createMessageSchema>;
+
+export const listMessagesQuerySchema = z.object({
+  caseId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>;
+
 // Audit -----------------------------------------------------------
 
 export const auditActionValues = [

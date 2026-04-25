@@ -33,25 +33,31 @@ async function loadFor(role: Role): Promise<NavCounts> {
     };
   }
   if (role === 'surgeon') {
-    const [c, t] = await Promise.all([
+    const [c, t, m] = await Promise.all([
       jsonOrNull<{ items: unknown[] }>(await fetch('/api/cases?limit=200')),
       jsonOrNull<{ items: { status: string }[] }>(
         await fetch('/api/tasks?mine=true&limit=200'),
       ),
+      jsonOrNull<{ items: { caseId: string }[] }>(await fetch('/api/messages?limit=500')),
     ]);
+    const threads = new Set((m?.items ?? []).map((x) => x.caseId));
     return {
       cases: c?.items.length,
       tasks: t?.items.filter((x) => x.status !== 'done').length,
+      messages: threads.size || undefined,
     };
   }
   if (role === 'coordinator' || role === 'allied') {
-    const [c, t] = await Promise.all([
+    const [c, t, m] = await Promise.all([
       jsonOrNull<{ items: unknown[] }>(await fetch('/api/cases?limit=200')),
       jsonOrNull<{ items: { status: string }[] }>(await fetch('/api/tasks?limit=500')),
+      jsonOrNull<{ items: { caseId: string }[] }>(await fetch('/api/messages?limit=500')),
     ]);
+    const threads = new Set((m?.items ?? []).map((x) => x.caseId));
     return {
       board: c?.items.length,
       tasks: t?.items.filter((x) => x.status !== 'done').length,
+      messages: threads.size || undefined,
     };
   }
   if (role === 'anesthesia') {
