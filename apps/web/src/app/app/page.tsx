@@ -1,18 +1,16 @@
-'use client';
+/**
+ * /app — neutral landing for the authenticated shell. Defers to
+ * /app/role-router which is a server component that reads the real
+ * Cognito session cookies and redirects to the right workspace.
+ *
+ * Hitting /app/role-router directly avoids the Phase-1 zustand session
+ * store, which is unreliable post-Cognito (the store may be empty or
+ * stale; the real source of truth lives in httpOnly cookies).
+ */
+import { redirect } from 'next/navigation';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSessionStore } from '@/store/session';
+export const dynamic = 'force-dynamic';
 
 export default function AppIndexRedirect() {
-  const router = useRouter();
-  const session = useSessionStore((s) => s.session);
-
-  useEffect(() => {
-    if (!session) router.replace('/login');
-    else if (session.role === 'patient') router.replace('/app/patient');
-    else router.replace(`/app/${session.role}`);
-  }, [router, session]);
-
-  return null;
+  redirect('/app/role-router');
 }
