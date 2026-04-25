@@ -5,21 +5,49 @@ import { usePathname } from 'next/navigation';
 import { useSessionStore } from '@/store/session';
 import { NAV } from './nav';
 import { Icon } from './icons';
+import { useNavCounts } from './use-nav-counts';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 import type { Role } from '@/types/session';
 
 interface SidebarProps {
   onSwitchRole: () => void;
 }
 
+const ROLE_LABEL: Record<Exclude<Role, 'patient'>, string> = {
+  admin: 'Health-center admin',
+  surgeon: 'Surgeon',
+  anesthesia: 'Anesthesiologist',
+  coordinator: 'Coordinator',
+  allied: 'Allied clinician',
+};
+
+function initialsFor(first: string, last: string): string {
+  const f = (first || '').trim()[0] ?? '';
+  const l = (last || '').trim()[0] ?? '';
+  return (f + l || '?').toUpperCase();
+}
+
 export function Sidebar({ onSwitchRole }: SidebarProps) {
+  const liveUser = useCurrentUser();
   const session = useSessionStore((s) => s.session);
   const pathname = usePathname();
 
-  if (!session || session.role === 'patient') return null;
+  // Prefer the live Cognito-backed identity. Fall back to the Phase-1
+  // mock store for dev-auth mode and the brief moment before /me lands.
+  const role = (liveUser?.role ?? session?.role) as Role | undefined;
+  const counts = useNavCounts(role ?? 'patient');
 
-  const role = session.role as Exclude<Role, 'patient'>;
-  const items = NAV[role] ?? [];
-  const u = session.user;
+  if (!role || role === 'patient') return null;
+
+  const items = NAV[role as Exclude<Role, 'patient'>] ?? [];
+
+  const display = liveUser
+    ? {
+        name: `${liveUser.firstName} ${liveUser.lastName}`.trim() || liveUser.email,
+        roleLabel: ROLE_LABEL[role as Exclude<Role, 'patient'>] ?? role,
+        initials: initialsFor(liveUser.firstName, liveUser.lastName),
+      }
+    : session?.user ?? { name: 'Loading…', roleLabel: '', initials: '…' };
 
   return (
     <aside className="sidebar" id="app-sidebar">
@@ -36,11 +64,12 @@ export function Sidebar({ onSwitchRole }: SidebarProps) {
           );
         }
         const active = pathname === item.href;
+        const count = counts[item.key];
         return (
           <Link key={item.key} className={`nav-item${active ? ' active' : ''}`} href={item.href}>
             <Icon name={item.icon} />
             <span>{item.label}</span>
-            {item.count != null && <span className="count">{item.count}</span>}
+            {typeof count === 'number' && <span className="count">{count}</span>}
           </Link>
         );
       })}
@@ -48,10 +77,10 @@ export function Sidebar({ onSwitchRole }: SidebarProps) {
       <div className="spacer" />
 
       <div className="user-card">
-        <span className="avatar">{u.initials}</span>
+        <span className="avatar">{display.initials}</span>
         <div className="meta">
-          <div className="name">{u.name}</div>
-          <div className="role">{u.roleLabel}</div>
+          <div className="name">{display.name}</div>
+          <div className="role">{display.roleLabel}</div>
         </div>
         <button
           className="switch"

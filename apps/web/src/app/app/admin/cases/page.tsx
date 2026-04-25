@@ -1,16 +1,16 @@
 'use client';
 
 /**
- * Admin · Cases — real data, replaces the Phase-1 mock.
+ * Admin · Cases — real data, mockup-faithful design.
  *
- * Lists every case in the system across all facilities. "New case"
- * picks a hydrated patient (from the Athena mirror) + a surgeon (from
- * users with role=surgeon) and stamps a `cases` row with status =
- * 'referral'. From there it flows through workup → clearance → ready
- * → completed (M7.4+).
+ * Top toolbar with status filter pills + a mini-search; data-table with
+ * patient/procedure/surgeon/surgery/readiness/status. Click a row → go
+ * to /app/admin/cases/[id] for the detail+edit view.
  */
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { Icon } from '@/components/shell/icons';
 
 type CaseStatus =
   | 'referral' | 'workup' | 'clearance' | 'pre_hab' | 'ready' | 'completed' | 'cancelled';
@@ -20,7 +20,6 @@ interface CaseRow {
   facilityId: string;
   patientId: string;
   surgeonId: string | null;
-  coordinatorId: string | null;
   procedureCode: string | null;
   procedureDescription: string | null;
   status: CaseStatus;
@@ -34,11 +33,17 @@ interface Patient {
 }
 interface Facility { id: string; name: string; }
 interface User {
-  id: string; firstName: string; lastName: string; role: string; facilityId: string | null;
+  id: string; firstName: string; lastName: string; role: string;
 }
 
-const STATUS_FILTERS: Array<'all' | CaseStatus> = [
-  'all', 'referral', 'workup', 'clearance', 'pre_hab', 'ready', 'completed',
+const STATUS_FILTERS: Array<{ s: 'all' | CaseStatus; label: string }> = [
+  { s: 'all',        label: 'All' },
+  { s: 'referral',   label: 'Referral' },
+  { s: 'workup',     label: 'Workup' },
+  { s: 'clearance',  label: 'Clearance' },
+  { s: 'pre_hab',    label: 'Pre-hab' },
+  { s: 'ready',      label: 'Ready' },
+  { s: 'completed',  label: 'Completed' },
 ];
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
@@ -47,14 +52,32 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
   return JSON.parse(text) as T;
 }
 
+function ageOf(dob: string): number {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return 0;
+  const diff = Date.now() - d.getTime();
+  return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
+}
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function daysTo(iso: string): number {
+  return Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000));
+}
+function initials(first: string, last: string): string {
+  return ((first[0] ?? '') + (last[0] ?? '')).toUpperCase() || '?';
+}
+
 export default function AdminCasesPage() {
   const [cases, setCases] = useState<CaseRow[] | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [surgeons, setSurgeons] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | CaseStatus>('all');
+  const [status, setStatus] = useState<'all' | CaseStatus>('all');
+  const [query, setQuery] = useState('');
 
+  // Inline new-case form state
   const [open, setOpen] = useState(false);
   const [nFacility, setNFacility] = useState('');
   const [nPatient, setNPatient] = useState('');
@@ -96,13 +119,27 @@ export default function AdminCasesPage() {
     surgeons.forEach((u) => m.set(u.id, u));
     return m;
   }, [surgeons]);
-  const facilityById = useMemo(() => {
-    const m = new Map<string, Facility>();
-    facilities.forEach((f) => m.set(f.id, f));
-    return m;
-  }, [facilities]);
 
-  const filtered = cases?.filter((c) => filter === 'all' || c.status === filter) ?? [];
+  const rows = useMemo(() => {
+    if (!cases) return [];
+    const q = query.trim().toLowerCase();
+    return cases.filter((c) => {
+      if (status !== 'all' && c.status !== status) return false;
+      if (!q) return true;
+      const p = patientById.get(c.patientId);
+      const haystack = [
+        p?.firstName,
+        p?.lastName,
+        p?.mrn,
+        c.procedureCode,
+        c.procedureDescription,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [cases, status, query, patientById]);
 
   async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -140,9 +177,10 @@ export default function AdminCasesPage() {
       <div className="page-head">
         <div>
           <span className="eyebrow">Admin · Cases</span>
-          <h1>All <span className="emph">cases</span> in flight.</h1>
+          <h1>All active <span className="emph">cases</span>.</h1>
         </div>
         <div className="page-actions">
+          <button className="btn btn-outline-dark" onClick={() => void load()}>Refresh</button>
           <button className="btn btn-primary" onClick={() => setOpen((v) => !v)}>
             {open ? 'Close' : 'New case'}
           </button>
@@ -163,7 +201,7 @@ export default function AdminCasesPage() {
               <div className="muted" style={{ marginBottom: 4 }}>Patient</div>
               <select className="input" required value={nPatient} onChange={(e) => setNPatient(e.target.value)}>
                 <option value="">Select…</option>
-                {patients.filter((p) => !nFacility || p.id).map((p) => (
+                {patients.map((p) => (
                   <option key={p.id} value={p.id}>{p.lastName}, {p.firstName} · {p.dob}</option>
                 ))}
               </select>
@@ -199,65 +237,109 @@ export default function AdminCasesPage() {
         </div>
       )}
 
-      <div className="card">
-        <div className="card-head">
-          <h3>Cases {filtered.length > 0 && `(${filtered.length})`}</h3>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {STATUS_FILTERS.map((s) => (
-              <button
-                key={s}
-                className={`btn ${filter === s ? 'btn-primary' : 'btn-outline-dark'}`}
-                style={{ fontSize: 12, padding: '4px 10px' }}
-                onClick={() => setFilter(s)}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+      <div className="toolbar">
+        <div className="seg">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.s}
+              type="button"
+              className={status === f.s ? 'active' : undefined}
+              onClick={() => setStatus(f.s)}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
-        {error && <div style={{ color: 'var(--danger, #c0392b)' }}>{error}</div>}
-        {!cases ? (
-          <div className="muted">Loading…</div>
-        ) : filtered.length === 0 ? (
+        <div className="mini-search">
+          <Icon name="search" size={14} />
+          <input
+            type="text"
+            placeholder="Search patient, procedure, MRN"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div className="spacer" />
+        <span className="status-pill neutral">{rows.length} case{rows.length === 1 ? '' : 's'}</span>
+      </div>
+
+      {error && <div style={{ color: 'var(--danger, #c0392b)', margin: '12px 0' }}>{error}</div>}
+
+      {!cases ? (
+        <div className="muted">Loading…</div>
+      ) : cases.length === 0 ? (
+        <div className="card">
           <div className="muted">
             No cases yet. Hydrate a patient on the{' '}
-            <a href="/app/admin/athena" style={{ textDecoration: 'underline' }}>Athena page</a>,{' '}
+            <Link href="/app/admin/athena" style={{ textDecoration: 'underline' }}>Athena page</Link>,{' '}
             then click "New case" above.
           </div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Patient</th>
-                <th>Procedure</th>
-                <th>Status</th>
-                <th>Surgeon</th>
-                <th>Facility</th>
-                <th>Surgery date</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => {
-                const p = patientById.get(c.patientId);
-                const s = c.surgeonId ? surgeonById.get(c.surgeonId) : null;
-                const f = facilityById.get(c.facilityId);
-                return (
-                  <tr key={c.id}>
-                    <td>{p ? `${p.lastName}, ${p.firstName}` : c.patientId.slice(0, 8)}</td>
-                    <td>{c.procedureCode ?? '—'} {c.procedureDescription ? `· ${c.procedureDescription}` : ''}</td>
-                    <td><span className={`status-pill status-${c.status}`}>{c.status}</span></td>
-                    <td>{s ? `Dr. ${s.lastName}` : '—'}</td>
-                    <td className="muted">{f?.name ?? '—'}</td>
-                    <td className="muted">{c.surgeryDate ? new Date(c.surgeryDate).toLocaleDateString() : '—'}</td>
-                    <td className="muted">{new Date(c.createdAt).toLocaleDateString()}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+        </div>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Patient</th>
+              <th>Procedure</th>
+              <th>Surgeon</th>
+              <th>Surgery</th>
+              <th>Readiness</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => {
+              const p = patientById.get(c.patientId);
+              const s = c.surgeonId ? surgeonById.get(c.surgeonId) : null;
+              return (
+                <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => { window.location.href = `/app/admin/cases/${c.id}`; }}>
+                  <td>
+                    <div className="row-with-avatar">
+                      <span className="avatar-xs">{p ? initials(p.firstName, p.lastName) : '?'}</span>
+                      <div>
+                        <div className="cell-primary">
+                          {p ? `${p.firstName} ${p.lastName}` : c.patientId.slice(0, 8)}
+                        </div>
+                        <div className="cell-sub">
+                          {p ? `${p.athenaResourceId ?? p.mrn ?? ''} · age ${ageOf(p.dob)}` : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="cell-primary">{c.procedureDescription ?? '—'}</div>
+                    <div className="cell-sub">{c.procedureCode ? `CPT ${c.procedureCode}` : ''}</div>
+                  </td>
+                  <td>{s ? `Dr. ${s.lastName}` : <span className="muted">unassigned</span>}</td>
+                  <td>
+                    {c.surgeryDate ? (
+                      <>
+                        {fmtDate(c.surgeryDate)}
+                        <div className="cell-sub">in {daysTo(c.surgeryDate)} days</div>
+                      </>
+                    ) : (
+                      <span className="muted">unscheduled</span>
+                    )}
+                  </td>
+                  <td>
+                    {c.readinessScore != null ? (
+                      <div className="readiness-bar">
+                        <div className="track">
+                          <div className="fill" style={{ width: `${c.readinessScore}%` }} />
+                        </div>
+                        <div className="val">{c.readinessScore}</div>
+                      </div>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                  <td><span className={`status-pill ${c.status}`}>{c.status}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </AppShell>
   );
 }

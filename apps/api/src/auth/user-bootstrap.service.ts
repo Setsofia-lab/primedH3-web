@@ -11,20 +11,40 @@
  * Idempotent: lookup by cognito_sub; insert if missing; otherwise
  * update last_seen_at + cognito_groups (so role refreshes propagate).
  *
+ * Cognito access tokens don't carry profile attributes (email, given_
+ * name, family_name) — those are only on the id_token. To get a clean
+ * display name on first bootstrap we call AdminGetUser by sub on miss,
+ * once per principal. After insert, the row is the source of truth and
+ * we never re-fetch from Cognito.
+ *
  * Called from JwtAuthGuard after token verification, before the request
- * handler runs. Fast: a single SELECT + (rare) INSERT or UPDATE.
+ * handler runs. Fast: SELECT + (rare) AdminGetUser + INSERT.
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import {
+  AdminGetUserCommand,
+  CognitoIdentityProviderClient,
+} from '@aws-sdk/client-cognito-identity-provider';
 import { eq, sql } from 'drizzle-orm';
+import type { AppConfig } from '../config/config.module';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
 import { users, type User } from '../db/schema';
-import type { AuthContext } from './auth-context';
+import type { AuthContext, PoolKind } from './auth-context';
 
 @Injectable()
 export class UserBootstrapService {
   private readonly logger = new Logger(UserBootstrapService.name);
+  private readonly idp: CognitoIdentityProviderClient;
 
-  constructor(@Inject(DB_CLIENT) private readonly db: PrimedDb) {}
+  constructor(
+    @Inject(DB_CLIENT) private readonly db: PrimedDb,
+    private readonly config: ConfigService<AppConfig, true>,
+  ) {
+    this.idp = new CognitoIdentityProviderClient({
+      region: this.config.get('COGNITO_REGION', { infer: true }) ?? 'us-east-1',
+    });
+  }
 
   /**
    * Ensure a users row exists for the authenticated principal. Returns
@@ -37,42 +57,56 @@ export class UserBootstrapService {
       .where(eq(users.cognitoSub, ctx.sub))
       .limit(1);
     if (existing[0]) {
-      // Light update — keep groups + last_seen fresh, leave names alone
-      // (admins manage display names through the invite flow).
+      // Heal the row if it was inserted before the AdminGetUser fix
+      // (firstName="User", lastName="", or fake email). This is a one-
+      // shot upgrade; rows created post-fix already have real values.
+      const stale =
+        existing[0].firstName === 'User' ||
+        existing[0].lastName === '' ||
+        existing[0].email.endsWith('@unknown.invalid');
+      const patch: Record<string, unknown> = {
+        cognitoGroups: ctx.groups as string[],
+        cognitoPool: ctx.pool,
+        lastSeenAt: new Date(),
+        role: ctx.role,
+      };
+      if (stale) {
+        const profile = await this.fetchCognitoProfile(ctx);
+        patch.firstName = profile.firstName;
+        patch.lastName = profile.lastName;
+        patch.email = profile.email || existing[0].email;
+        this.logger.log(
+          `healed users row sub=${ctx.sub} → name="${profile.firstName} ${profile.lastName}"`,
+        );
+      }
       const [touched] = await this.db
         .update(users)
-        .set({
-          cognitoGroups: ctx.groups as string[],
-          cognitoPool: ctx.pool,
-          lastSeenAt: new Date(),
-          // Role can change if an admin moves a user between groups in
-          // Cognito; we trust the latest token here.
-          role: ctx.role,
-        })
+        .set(patch)
         .where(eq(users.id, existing[0].id))
         .returning();
       return touched ?? existing[0];
     }
 
-    // Self-bootstrap: derive display name from the email's local part
-    // since access tokens don't carry given_name/family_name. Admins
-    // can edit later via the users admin page.
-    const [given, family] = nameFromEmail(ctx.email);
+    // Self-bootstrap: pull profile attrs from Cognito because access
+    // tokens don't carry given_name/family_name/email.
+    const profile = await this.fetchCognitoProfile(ctx);
     try {
       const [created] = await this.db
         .insert(users)
         .values({
-          email: ctx.email,
+          email: profile.email || ctx.email || `${ctx.sub}@unknown.invalid`,
           cognitoSub: ctx.sub,
           cognitoPool: ctx.pool,
           cognitoGroups: ctx.groups as string[],
           role: ctx.role,
-          firstName: given,
-          lastName: family,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
           lastSeenAt: new Date(),
         })
         .returning();
-      this.logger.log(`bootstrapped users row for sub=${ctx.sub} role=${ctx.role}`);
+      this.logger.log(
+        `bootstrapped users row for sub=${ctx.sub} role=${ctx.role} name="${profile.firstName} ${profile.lastName}"`,
+      );
       return created!;
     } catch (err) {
       // Concurrent first-request race: two requests bootstrap at once,
@@ -104,10 +138,59 @@ export class UserBootstrapService {
     if (updated[0]) return updated[0];
     return this.ensure(ctx);
   }
+
+  private poolIdFor(pool: PoolKind): string | undefined {
+    if (pool === 'admins') {
+      return this.config.get('COGNITO_ADMINS_POOL_ID', { infer: true }) ?? undefined;
+    }
+    if (pool === 'patients') {
+      return this.config.get('COGNITO_PATIENTS_POOL_ID', { infer: true }) ?? undefined;
+    }
+    return this.config.get('COGNITO_PROVIDERS_POOL_ID', { infer: true }) ?? undefined;
+  }
+
+  /**
+   * One-time profile fetch on bootstrap miss. Uses AdminGetUser to read
+   * email + given_name + family_name from the Cognito user record.
+   * Falls back to email-local-part heuristics if anything is missing.
+   */
+  private async fetchCognitoProfile(
+    ctx: AuthContext,
+  ): Promise<{ email: string; firstName: string; lastName: string }> {
+    const poolId = this.poolIdFor(ctx.pool);
+    if (!poolId) {
+      const [g, f] = nameFromEmail(ctx.email);
+      return { email: ctx.email, firstName: g, lastName: f };
+    }
+    try {
+      const out = await this.idp.send(
+        new AdminGetUserCommand({ UserPoolId: poolId, Username: ctx.sub }),
+      );
+      const attrs = new Map(
+        (out.UserAttributes ?? []).map((a) => [a.Name ?? '', a.Value ?? '']),
+      );
+      const email = attrs.get('email') ?? ctx.email;
+      const given = attrs.get('given_name') ?? '';
+      const family = attrs.get('family_name') ?? '';
+      if (given || family) {
+        return {
+          email,
+          firstName: given || cap(email.split('@')[0] ?? 'User'),
+          lastName: family,
+        };
+      }
+      const [g, f] = nameFromEmail(email);
+      return { email, firstName: g, lastName: f };
+    } catch (err) {
+      this.logger.warn(`AdminGetUser failed for sub=${ctx.sub}: ${(err as Error).message}`);
+      const [g, f] = nameFromEmail(ctx.email);
+      return { email: ctx.email, firstName: g, lastName: f };
+    }
+  }
 }
 
 function nameFromEmail(email: string): [string, string] {
-  const local = email.split('@')[0] ?? '';
+  const local = (email || '').split('@')[0] ?? '';
   if (!local) return ['User', ''];
   // setsofiaeli → "Setsofiaeli"; firstname.lastname → "Firstname Lastname".
   const parts = local.split(/[._+-]/).filter(Boolean);

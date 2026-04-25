@@ -60,6 +60,36 @@ export const listCasesQuerySchema = z.object({
 });
 export type ListCasesQuery = z.infer<typeof listCasesQuerySchema>;
 
+/**
+ * Athena patient search — accepts the same parameter combinations Athena
+ * accepts ([_id], [identifier], [name], [family,birthdate], [family,
+ * gender], [family,given]). We don't pre-validate the combo here; if
+ * the wrong mix lands at Athena it returns OperationOutcome 403 which
+ * we surface unchanged.
+ */
+export const searchAthenaPatientsSchema = z.object({
+  _id: z.string().optional(),
+  identifier: z.string().optional(),
+  name: z.string().optional(),
+  family: z.string().optional(),
+  given: z.string().optional(),
+  birthdate: z.string().optional(),
+  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
+  practiceId: z.string().optional(),
+});
+export type SearchAthenaPatientsQuery = z.infer<typeof searchAthenaPatientsSchema>;
+
+export const updateCaseSchema = z.object({
+  surgeonId: z.string().uuid().nullable().optional(),
+  coordinatorId: z.string().uuid().nullable().optional(),
+  procedureCode: z.string().max(32).nullable().optional(),
+  procedureDescription: z.string().max(2000).nullable().optional(),
+  status: z.enum(caseStatusValues).optional(),
+  surgeryDate: z.string().datetime().nullable().optional(),
+  readinessScore: z.number().int().min(0).max(100).nullable().optional(),
+});
+export type UpdateCaseInput = z.infer<typeof updateCaseSchema>;
+
 export const userRoleValues = [
   'admin',
   'surgeon',

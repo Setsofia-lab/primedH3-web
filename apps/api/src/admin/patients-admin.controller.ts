@@ -28,13 +28,16 @@ import { and, desc, eq } from 'drizzle-orm';
 import { Roles } from '../auth/roles.decorator';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
 import { patients, type Patient } from '../db/schema';
+import { AthenaFhirClient, type FhirPatient } from '../integrations/athena/athena-fhir.client';
 import { PatientHydrationService } from '../integrations/athena/hydration/patient-hydration.service';
 import type { HydratePatientResult } from '../integrations/athena/hydration/patient-hydration.service';
 import {
   hydratePatientSchema,
   listPatientsQuerySchema,
+  searchAthenaPatientsSchema,
   type HydratePatientInput,
   type ListPatientsQuery,
+  type SearchAthenaPatientsQuery,
 } from './dto/admin.schemas';
 import { ZodBodyPipe } from './zod-body.pipe';
 import { ZodQueryPipe } from './zod-query.pipe';
@@ -46,6 +49,7 @@ import { ZodQueryPipe } from './zod-query.pipe';
 export class PatientsAdminController {
   constructor(
     private readonly hydration: PatientHydrationService,
+    private readonly fhir: AthenaFhirClient,
     @Inject(DB_CLIENT) private readonly db: PrimedDb,
   ) {}
 
@@ -83,5 +87,45 @@ export class PatientsAdminController {
       .limit(query.limit)
       .offset(query.offset);
     return { items, limit: query.limit, offset: query.offset };
+  }
+
+  /**
+   * Search Athena's FHIR Patient endpoint by name + birthdate / gender
+   * etc. without writing anything to our DB. Used by the admin Athena
+   * page to preview candidates before clicking "hydrate".
+   *
+   * Athena requires one of these parameter combinations:
+   *   [_id], [identifier], [name], [family,birthdate], [family,gender],
+   *   [family,given]. If the wrong combo lands at Athena it returns
+   *   FHIR OperationOutcome 403 which we surface as 502.
+   */
+  @Get('search')
+  @ApiOperation({ summary: 'Live FHIR Patient search against Athena (no writes)' })
+  async search(
+    @Query(new ZodQueryPipe(searchAthenaPatientsSchema)) query: SearchAthenaPatientsQuery,
+  ): Promise<{ items: FhirPatient[]; alreadyMirrored: Record<string, string> }> {
+    const { practiceId, ...athenaParams } = query;
+    const params = Object.fromEntries(
+      Object.entries(athenaParams).filter(([, v]) => v !== undefined),
+    ) as Record<string, string>;
+    // Athena requires _count on multi-result searches; cap to a sane page.
+    if (!('_count' in params)) params._count = '20';
+
+    const page = await this.fhir.searchPatients(params, practiceId);
+
+    // Cross-reference against our mirror so the UI can show "already
+    // imported" indicators. Cheap: one IN-list query.
+    const ids = page.resources.map((p) => p.id);
+    const mirrored = ids.length
+      ? await this.db
+          .select({ id: patients.id, athenaResourceId: patients.athenaResourceId })
+          .from(patients)
+          .where(eq(patients.athenaPracticeId, practiceId ?? '1128700'))
+      : [];
+    const map: Record<string, string> = {};
+    for (const m of mirrored) {
+      if (m.athenaResourceId && ids.includes(m.athenaResourceId)) map[m.athenaResourceId] = m.id;
+    }
+    return { items: page.resources, alreadyMirrored: map };
   }
 }

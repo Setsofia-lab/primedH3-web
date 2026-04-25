@@ -107,7 +107,7 @@ describe('PatientsAdminController', () => {
 
   it('delegates hydrate() to PatientHydrationService', async () => {
     const hydration = mkHydration();
-    const ctrl = new PatientsAdminController(hydration as never, {} as never);
+    const ctrl = new PatientsAdminController(hydration as never, {} as never, {} as never);
     const out = await ctrl.hydrate({
       facilityId: FACILITY_UUID,
       athenaResourceId: 'a-1128700.E-14914',
@@ -124,7 +124,7 @@ describe('PatientsAdminController', () => {
 
   it('list() returns items + pagination echo', async () => {
     const db = mkPatientsDb([{ id: 'p1' }, { id: 'p2' }]);
-    const ctrl = new PatientsAdminController({} as never, db as never);
+    const ctrl = new PatientsAdminController({} as never, {} as never, db as never);
     const out = await ctrl.list({
       facilityId: FACILITY_UUID,
       limit: 50,

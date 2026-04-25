@@ -14,6 +14,9 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  NotFoundException,
+  Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -25,8 +28,10 @@ import { cases, type Case } from '../db/schema';
 import {
   createCaseSchema,
   listCasesQuerySchema,
+  updateCaseSchema,
   type CreateCaseInput,
   type ListCasesQuery,
+  type UpdateCaseInput,
 } from './dto/admin.schemas';
 import { ZodBodyPipe } from './zod-body.pipe';
 import { ZodQueryPipe } from './zod-query.pipe';
@@ -83,5 +88,53 @@ export class CasesAdminController {
       .limit(query.limit)
       .offset(query.offset);
     return { items, limit: query.limit, offset: query.offset };
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Read a single case by id' })
+  async get(@Param('id') id: string): Promise<Case> {
+    const [row] = await this.db
+      .select()
+      .from(cases)
+      .where(eq(cases.id, id))
+      .limit(1);
+    if (!row) throw new NotFoundException(`case ${id} not found`);
+    return row;
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Update a case (assignment, procedure, status, schedule, readiness)',
+  })
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodBodyPipe(updateCaseSchema)) input: UpdateCaseInput,
+  ): Promise<Case> {
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    if ('surgeonId' in input) patch.surgeonId = input.surgeonId ?? null;
+    if ('coordinatorId' in input) patch.coordinatorId = input.coordinatorId ?? null;
+    if ('procedureCode' in input) patch.procedureCode = input.procedureCode ?? null;
+    if ('procedureDescription' in input) {
+      patch.procedureDescription = input.procedureDescription ?? null;
+    }
+    if (input.status !== undefined) {
+      patch.status = input.status;
+      // Stamp clearedAt when a case crosses into 'ready' or 'completed'.
+      if (input.status === 'ready' || input.status === 'completed') {
+        patch.clearedAt = new Date();
+      }
+    }
+    if ('surgeryDate' in input) {
+      patch.surgeryDate = input.surgeryDate ? new Date(input.surgeryDate) : null;
+    }
+    if ('readinessScore' in input) patch.readinessScore = input.readinessScore ?? null;
+
+    const [row] = await this.db
+      .update(cases)
+      .set(patch)
+      .where(eq(cases.id, id))
+      .returning();
+    if (!row) throw new NotFoundException(`case ${id} not found`);
+    return row;
   }
 }
