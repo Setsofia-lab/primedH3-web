@@ -1,44 +1,132 @@
+'use client';
+
+/**
+ * Patient · Journey — visual case timeline derived from the case status.
+ *
+ * Maps the case_status enum to a 5-stage journey so patients see
+ * progress at a glance:
+ *   referral / workup → "Workup"
+ *   clearance         → "Clearance"
+ *   pre_hab           → "Pre-hab"
+ *   ready             → "Ready"
+ *   completed         → "Surgery"
+ */
+import { useEffect, useState } from 'react';
 import { PatientShell } from '@/components/patient/PatientShell';
 
-interface Node { state: 'done' | 'active' | 'todo'; date: string; title: string; sub: string }
+type CaseStatus =
+  | 'referral' | 'workup' | 'clearance' | 'pre_hab' | 'ready' | 'completed' | 'cancelled';
 
-const NODES: Node[] = [
-  { state: 'done',   date: 'APR 08 · COMPLETE',     title: 'Referral received',      sub: 'Dr. Oduya submitted your surgical referral. We parsed it and opened your case.' },
-  { state: 'done',   date: 'APR 10 · COMPLETE',     title: 'Intake questionnaire',   sub: 'You answered 18 health-history questions. Thank you — we used them to build your plan.' },
-  { state: 'done',   date: 'APR 12 · COMPLETE',     title: 'Labs drawn at Bayview',  sub: 'CBC, BMP, coags all within normal limits. Dr. Chen reviewed.' },
-  { state: 'active', date: 'THIS WEEK · IN PROGRESS', title: 'Anesthesia clearance', sub: "Dr. Chen is finalizing your pre-op note. You'll be notified when she signs off — expected Monday." },
-  { state: 'todo',   date: 'APR 27 · UPCOMING',     title: 'Pre-op phone call',      sub: 'Priya, your coordinator, will call the day before to review NPO, meds, and arrival.' },
-  { state: 'todo',   date: 'APR 28 · SURGERY',      title: 'Laparoscopic cholecystectomy', sub: 'Arrive 6:30 AM · surgery starts 7:30 AM · home by mid-afternoon.' },
-  { state: 'todo',   date: 'APR 30 · UPCOMING',     title: 'Day-2 follow-up call',   sub: "We'll check in on pain, diet, and recovery. 10 minutes." },
-  { state: 'todo',   date: 'MAY 12 · UPCOMING',     title: 'Post-op visit with Dr. Oduya', sub: 'In-person at Bayview · staple removal + recovery review.' },
+interface CaseRow {
+  id: string;
+  status: CaseStatus;
+  procedureDescription: string | null;
+  surgeryDate: string | null;
+  readinessScore: number | null;
+}
+
+const STAGES: Array<{ key: string; title: string; matches: CaseStatus[] }> = [
+  { key: 'referral',  title: 'Referred',  matches: ['referral'] },
+  { key: 'workup',    title: 'Workup',    matches: ['workup'] },
+  { key: 'clearance', title: 'Clearance', matches: ['clearance'] },
+  { key: 'pre_hab',   title: 'Pre-hab',   matches: ['pre_hab'] },
+  { key: 'ready',     title: 'Ready',     matches: ['ready'] },
+  { key: 'surgery',   title: 'Surgery',   matches: ['completed'] },
 ];
 
+async function jsonOrNull<T>(res: Response): Promise<T | null> {
+  if (!res.ok) return null;
+  return (await res.json()) as T;
+}
+
 export default function PatientTimelinePage() {
+  const [c, setC] = useState<CaseRow | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    void (async () => {
+      const r = await jsonOrNull<{ items: CaseRow[] }>(await fetch('/api/me/cases'));
+      setC(r?.items[0] ?? null);
+      setLoading(false);
+    })();
+  }, []);
+
+  const currentIndex = c
+    ? STAGES.findIndex((s) => s.matches.includes(c.status))
+    : -1;
+
   return (
     <PatientShell>
-      <div className="s-head">
-        <div className="eyebrow">YOUR JOURNEY</div>
-        <h1>Step by <em>step</em>.</h1>
-        <div className="sub">Every milestone from intake to recovery — we&apos;ll walk you through each one.</div>
-      </div>
+      <div style={{ padding: 20, color: 'var(--ink-900, #1a1a1a)' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 500, marginBottom: 16, marginTop: 0 }}>
+          Your <span style={{ fontStyle: 'italic' }}>journey</span>.
+        </h1>
 
-      <div className="tl">
-        {NODES.map((n, i) => (
-          <div className={`node${n.state === 'done' ? ' done' : ''}${n.state === 'active' ? ' active' : ''}`} key={i}>
-            <div className="dot">
-              {n.state === 'done' && (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+        {loading ? (
+          <div style={{ color: '#888', fontSize: 14 }}>Loading…</div>
+        ) : !c ? (
+          <div style={{ background: '#f6f7fa', borderRadius: 12, padding: 16, fontSize: 14, color: '#555' }}>
+            No surgery on file yet.
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: 20, fontSize: 13, color: '#555' }}>
+              {c.procedureDescription ?? 'Your procedure'}
+              {c.surgeryDate && (
+                <> · {new Date(c.surgeryDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</>
               )}
             </div>
-            <div className="bx">
-              <div className="dt">{n.date}</div>
-              <div className="ti">{n.title}</div>
-              <div className="sb">{n.sub}</div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {STAGES.map((stage, i) => {
+                const done = i < currentIndex;
+                const active = i === currentIndex;
+                const isLast = i === STAGES.length - 1;
+                return (
+                  <div key={stage.key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    {/* Dot + line */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 22 }}>
+                      <div
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: '50%',
+                          background: done ? '#4B6BEF' : active ? '#fff' : '#f0f2f5',
+                          border: active ? '3px solid #4B6BEF' : '1.5px solid #d5dae0',
+                          flexShrink: 0,
+                        }}
+                      />
+                      {!isLast && (
+                        <div
+                          style={{
+                            width: 2,
+                            flex: 1,
+                            background: done ? '#4B6BEF' : '#e3e6eb',
+                            minHeight: 32,
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div style={{ flex: 1, paddingBottom: isLast ? 0 : 22, paddingTop: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: active ? 600 : 500,
+                          color: done || active ? 'var(--ink-900, #1a1a1a)' : '#999',
+                        }}
+                      >
+                        {stage.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                        {done ? 'Completed' : active ? 'In progress' : 'Coming up'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        ))}
+          </>
+        )}
       </div>
     </PatientShell>
   );

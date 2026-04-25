@@ -147,6 +147,14 @@ export const inviteUserSchema = z.object({
   firstName: z.string().min(1).max(120),
   lastName: z.string().min(1).max(120),
   facilityId: z.string().uuid().optional(),
+  /**
+   * When role === 'patient' and patientId is provided, the invite flow
+   * links the new Cognito user to that already-mirrored patient row by
+   * setting patients.user_id. Without the link, the patient logs in but
+   * sees no case — so the admin form should always pair "patient invite"
+   * with a patient-row pick.
+   */
+  patientId: z.string().uuid().optional(),
 });
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
 

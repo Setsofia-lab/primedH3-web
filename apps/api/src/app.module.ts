@@ -9,6 +9,7 @@ import { ConfigModule } from './config/config.module';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
 import { AthenaModule } from './integrations/athena/athena.module';
+import { MeModule } from './me/me.module';
 import { RedisModule } from './redis/redis.module';
 
 @Module({
@@ -46,6 +47,7 @@ import { RedisModule } from './redis/redis.module';
     HealthModule,
     AdminModule,
     CasesModule,
+    MeModule,
   ],
 })
 export class AppModule {}

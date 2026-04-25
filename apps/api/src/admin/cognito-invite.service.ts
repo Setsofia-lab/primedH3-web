@@ -24,7 +24,7 @@ import {
 import { eq } from 'drizzle-orm';
 import type { AppConfig } from '../config/config.module';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
-import { users, type User } from '../db/schema';
+import { patients, users, type User } from '../db/schema';
 import type { Role } from '../auth/auth-context';
 
 interface InviteInput {
@@ -33,6 +33,7 @@ interface InviteInput {
   readonly firstName: string;
   readonly lastName: string;
   readonly facilityId?: string;
+  readonly patientId?: string;
 }
 
 interface InviteOutcome {
@@ -122,6 +123,8 @@ export class CognitoInviteService {
       };
     }
 
+    const cognitoPool: 'admins' | 'providers' | 'patients' =
+      input.role === 'admin' ? 'admins' : input.role === 'patient' ? 'patients' : 'providers';
     const [row] = await this.db
       .insert(users)
       .values({
@@ -130,12 +133,23 @@ export class CognitoInviteService {
         lastName: input.lastName,
         role: input.role,
         cognitoSub,
-        cognitoPool: input.role === 'admin' ? 'admins' : 'providers',
+        cognitoPool,
         cognitoGroups: groupName ? [groupName] : [],
         facilityId: input.facilityId ?? null,
         invitedAt: new Date(),
       })
       .returning();
+
+    // Patient linkage: if a patient row was specified, point it at the new
+    // user. The patient's logins now resolve to this row, and the api can
+    // serve their case via /me/* without further admin work.
+    if (input.role === 'patient' && input.patientId && row) {
+      await this.db
+        .update(patients)
+        .set({ userId: row.id })
+        .where(eq(patients.id, input.patientId));
+      this.logger.log(`linked patient row=${input.patientId} → user=${row.id}`);
+    }
 
     this.logger.log(
       `invited user email=${input.email} role=${input.role} cognitoSub=${cognitoSub}`,

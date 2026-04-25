@@ -32,12 +32,22 @@ interface Facility {
   name: string;
 }
 
+interface PatientRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  mrn: string | null;
+  athenaResourceId: string | null;
+}
+
 const ROLE_OPTIONS: User['role'][] = [
   'surgeon',
   'anesthesia',
   'coordinator',
   'allied',
   'admin',
+  'patient',
 ];
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
@@ -60,6 +70,7 @@ function timeAgo(iso: string | null): string {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[] | null>(null);
   const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [patientRows, setPatientRows] = useState<PatientRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<User['role'] | 'all'>('all');
 
@@ -69,18 +80,21 @@ export default function AdminUsersPage() {
   const [iLast, setILast] = useState('');
   const [iRole, setIRole] = useState<User['role']>('surgeon');
   const [iFacility, setIFacility] = useState('');
+  const [iPatient, setIPatient] = useState('');
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState<string | null>(null);
 
   async function load() {
     setError(null);
     try {
-      const [u, f] = await Promise.all([
+      const [u, f, p] = await Promise.all([
         jsonOrThrow<{ items: User[] }>(await fetch('/api/admin/users?limit=200')),
         jsonOrThrow<Facility[]>(await fetch('/api/admin/facilities')),
+        jsonOrThrow<{ items: PatientRow[] }>(await fetch('/api/admin/patients?limit=200')),
       ]);
       setUsers(u.items);
       setFacilities(f);
+      setPatientRows(p.items);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -101,6 +115,7 @@ export default function AdminUsersPage() {
         lastName: iLast.trim(),
         role: iRole,
         ...(iFacility ? { facilityId: iFacility } : {}),
+        ...(iRole === 'patient' && iPatient ? { patientId: iPatient } : {}),
       };
       const r = await jsonOrThrow<{ user: User; userStatus: string }>(
         await fetch('/api/admin/users/invite', {
@@ -115,6 +130,7 @@ export default function AdminUsersPage() {
       setIEmail('');
       setIFirst('');
       setILast('');
+      setIPatient('');
       await load();
     } catch (e) {
       setInviteResult(`Error: ${(e as Error).message}`);
@@ -172,6 +188,26 @@ export default function AdminUsersPage() {
                 ))}
               </select>
             </label>
+            {iRole === 'patient' && (
+              <label style={{ gridColumn: '1 / -1' }}>
+                <div className="muted" style={{ marginBottom: 4 }}>
+                  Patient record (required for patient invites)
+                </div>
+                <select className="input" value={iPatient} onChange={(e) => setIPatient(e.target.value)}>
+                  <option value="">— pick the imported patient this account is for —</option>
+                  {patientRows.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.lastName}, {p.firstName} · {p.dob}{p.athenaResourceId ? ` · ${p.athenaResourceId}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                  Without this link the patient logs in but sees no surgery.
+                  Hydrate the patient on the{' '}
+                  <a href="/app/admin/athena" style={{ textDecoration: 'underline' }}>Athena page</a> first.
+                </div>
+              </label>
+            )}
             <div style={{ gridColumn: '1 / -1' }}>
               <button className="btn btn-primary" type="submit" disabled={inviting}>
                 {inviting ? 'Inviting…' : 'Send invite'}
