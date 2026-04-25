@@ -1,54 +1,62 @@
-import { AppShell } from '@/components/shell/AppShell';
-import { PATIENTS } from '@/mocks/fixtures/admin';
+'use client';
 
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+/**
+ * Anesthesia · Cleared — cases at status=ready (cleared for OR).
+ */
+import { useEffect, useState } from 'react';
+import { AppShell } from '@/components/shell/AppShell';
+import { CaseList } from '../_lib/CaseList';
+
+interface CaseRow {
+  id: string; patientId: string; surgeonId: string | null;
+  procedureCode: string | null; procedureDescription: string | null;
+  status: string; readinessScore: number | null; surgeryDate: string | null;
+}
+interface Patient { id: string; firstName: string; lastName: string; dob: string; }
+interface Provider { id: string; firstName: string; lastName: string; role: string; }
+
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+  return JSON.parse(text) as T;
 }
 
 export default function AnesthesiaClearedPage() {
-  const rows = PATIENTS.filter((p) => p.status === 'cleared');
+  const [cases, setCases] = useState<CaseRow[] | null>(null);
+  const [patients, setPatients] = useState<Map<string, Patient>>(new Map());
+  const [providers, setProviders] = useState<Map<string, Provider>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [c, p, pr] = await Promise.all([
+          jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?status=ready&limit=200')),
+          jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
+          jsonOrThrow<{ items: Provider[] }>(await fetch('/api/providers')),
+        ]);
+        setCases(c.items);
+        const pm = new Map<string, Patient>(); p.items.forEach((x) => pm.set(x.id, x)); setPatients(pm);
+        const prm = new Map<string, Provider>(); pr.items.forEach((x) => prm.set(x.id, x)); setProviders(prm);
+      } catch (e) { setError((e as Error).message); }
+    })();
+  }, []);
 
   return (
     <AppShell breadcrumbs={['Anesthesia', 'Cleared']}>
       <div className="page-head">
         <div>
           <span className="eyebrow">Anesthesia · Cleared</span>
-          <h1>
-            Signed <span className="emph">clearances</span>.
-          </h1>
+          <h1>Ready for <span className="emph">OR</span>.</h1>
         </div>
       </div>
-
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Patient</th>
-            <th>Procedure</th>
-            <th>ASA</th>
-            <th>Signed</th>
-            <th>Surgery</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((p) => (
-            <tr key={p.id}>
-              <td>
-                <div className="row-with-avatar">
-                  <span className="avatar-xs">{p.initials}</span>
-                  <div>
-                    <div className="cell-primary">{p.name}</div>
-                    <div className="cell-sub">{p.id}</div>
-                  </div>
-                </div>
-              </td>
-              <td>{p.procedure}</td>
-              <td>ASA {p.asa}</td>
-              <td>Today · 9:42a</td>
-              <td>{fmt(p.surgeryDate)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <CaseList
+        cases={cases}
+        patients={patients}
+        providers={providers}
+        error={error}
+        emptyMessage="No cleared cases yet."
+      />
     </AppShell>
   );
 }

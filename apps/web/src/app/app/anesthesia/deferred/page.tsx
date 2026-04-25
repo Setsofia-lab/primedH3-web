@@ -1,66 +1,68 @@
-import { AppShell } from '@/components/shell/AppShell';
-import { PATIENTS } from '@/mocks/fixtures/admin';
+'use client';
 
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+/**
+ * Anesthesia · Deferred — cases at status=cancelled or status=pre_hab
+ * (held back from clearance — needs more work / pre-habilitation).
+ *
+ * Until we add multi-status filter on the backend, fetch the two
+ * statuses separately and merge.
+ */
+import { useEffect, useState } from 'react';
+import { AppShell } from '@/components/shell/AppShell';
+import { CaseList } from '../_lib/CaseList';
+
+interface CaseRow {
+  id: string; patientId: string; surgeonId: string | null;
+  procedureCode: string | null; procedureDescription: string | null;
+  status: string; readinessScore: number | null; surgeryDate: string | null;
+}
+interface Patient { id: string; firstName: string; lastName: string; dob: string; }
+interface Provider { id: string; firstName: string; lastName: string; role: string; }
+
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+  return JSON.parse(text) as T;
 }
 
-const REASONS: Record<string, [string, string]> = {
-  pt_daniel_shaw: ['CAD · OSA untreated', 'Cardiology consult + sleep study'],
-};
-
 export default function AnesthesiaDeferredPage() {
-  const rows = PATIENTS.filter((p) => p.status === 'deferred');
+  const [cases, setCases] = useState<CaseRow[] | null>(null);
+  const [patients, setPatients] = useState<Map<string, Patient>>(new Map());
+  const [providers, setProviders] = useState<Map<string, Provider>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [pre, cancelled, p, pr] = await Promise.all([
+          jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?status=pre_hab&limit=200')),
+          jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?status=cancelled&limit=200')),
+          jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
+          jsonOrThrow<{ items: Provider[] }>(await fetch('/api/providers')),
+        ]);
+        const merged = [...pre.items, ...cancelled.items];
+        setCases(merged);
+        const pm = new Map<string, Patient>(); p.items.forEach((x) => pm.set(x.id, x)); setPatients(pm);
+        const prm = new Map<string, Provider>(); pr.items.forEach((x) => prm.set(x.id, x)); setProviders(prm);
+      } catch (e) { setError((e as Error).message); }
+    })();
+  }, []);
 
   return (
     <AppShell breadcrumbs={['Anesthesia', 'Deferred']}>
       <div className="page-head">
         <div>
           <span className="eyebrow">Anesthesia · Deferred</span>
-          <h1>
-            Pending <span className="emph">workup</span>.
-          </h1>
+          <h1>Held for <span className="emph">pre-hab</span>.</h1>
         </div>
       </div>
-
-      <div className="ai-banner">
-        <b>Deferrals</b> trigger the ReferralAgent and PatientCommsAgent automatically — coordinator
-        keeps the case moving while you wait on data.
-      </div>
-
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Patient</th>
-            <th>Procedure</th>
-            <th>Reason</th>
-            <th>Awaiting</th>
-            <th>Surgery</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((p) => {
-            const [reason, awaiting] = REASONS[p.id] ?? ['Pending workup', 'Labs + imaging'];
-            return (
-              <tr key={p.id}>
-                <td>
-                  <div className="row-with-avatar">
-                    <span className="avatar-xs">{p.initials}</span>
-                    <div>
-                      <div className="cell-primary">{p.name}</div>
-                      <div className="cell-sub">{p.id}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>{p.procedure}</td>
-                <td>{reason}</td>
-                <td>{awaiting}</td>
-                <td>{fmt(p.surgeryDate)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <CaseList
+        cases={cases}
+        patients={patients}
+        providers={providers}
+        error={error}
+        emptyMessage="Nothing deferred."
+      />
     </AppShell>
   );
 }

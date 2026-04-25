@@ -1,62 +1,124 @@
+'use client';
+
+/**
+ * Coordinator · Providers — directory of providers visible to the caller
+ * (facility-scoped). Sourced from the slim /api/providers endpoint.
+ */
+import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { Icon } from '@/components/shell/icons';
 
 interface Provider {
-  nm: string;
-  sp: string;
-  org: string;
-  loc: string;
-  sla: string;
-  initials: string;
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: 'admin' | 'surgeon' | 'anesthesia' | 'coordinator' | 'allied';
 }
 
-const PROVIDERS: Provider[] = [
-  { nm: 'Dr. Elena Lin',     sp: 'Cardiology',           org: 'Bayview Heart',    loc: '2.4mi', sla: '18h avg', initials: 'EL' },
-  { nm: 'Dr. Amir Farhadi',  sp: 'Cardiology',           org: 'Metro Cardio',     loc: '4.1mi', sla: '36h avg', initials: 'AF' },
-  { nm: 'Dr. Nadia Chavez',  sp: 'Pulmonology',          org: 'Bayview Pulm',     loc: '2.4mi', sla: '24h avg', initials: 'NC' },
-  { nm: 'Dr. Peter Salim',   sp: 'Endocrine',            org: 'Bayview Endo',     loc: '2.4mi', sla: '48h avg', initials: 'PS' },
-  { nm: 'Dr. Ria Bowen',     sp: 'Hematology',           org: 'Bayview Heme',     loc: '2.4mi', sla: '12h avg', initials: 'RB' },
-  { nm: 'OutsideLab West',   sp: 'Lab / Imaging',        org: 'Network partner',  loc: '8.2mi', sla: 'Fax · slow', initials: 'OL' },
-  { nm: 'Dr. Henry Osei',    sp: 'Sleep medicine',       org: 'Bayview Sleep',    loc: '2.4mi', sla: '72h avg', initials: 'HO' },
-  { nm: 'Dr. Mei Zhao',      sp: 'Anesthesia · external', org: 'Metro Anes Group', loc: '4.1mi', sla: '24h avg', initials: 'MZ' },
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+  return JSON.parse(text) as T;
+}
+
+const ROLES: Array<{ r: 'all' | Provider['role']; label: string }> = [
+  { r: 'all', label: 'All' },
+  { r: 'surgeon', label: 'Surgeons' },
+  { r: 'anesthesia', label: 'Anesthesia' },
+  { r: 'coordinator', label: 'Coordinators' },
+  { r: 'allied', label: 'Allied' },
+  { r: 'admin', label: 'Admins' },
 ];
 
 export default function CoordinatorProvidersPage() {
+  const [providers, setProviders] = useState<Provider[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | Provider['role']>('all');
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await jsonOrThrow<{ items: Provider[] }>(await fetch('/api/providers'));
+        setProviders(res.items);
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    })();
+  }, []);
+
+  const rows = useMemo(() => {
+    if (!providers) return [];
+    const q = query.trim().toLowerCase();
+    return providers.filter((p) => {
+      if (filter !== 'all' && p.role !== filter) return false;
+      if (!q) return true;
+      return `${p.firstName} ${p.lastName}`.toLowerCase().includes(q);
+    });
+  }, [providers, filter, query]);
+
   return (
     <AppShell breadcrumbs={['Coordinator', 'Providers']}>
       <div className="page-head">
         <div>
           <span className="eyebrow">Coordinator · Providers</span>
-          <h1>
-            Referral <span className="emph"><em>network</em></span>.
-          </h1>
+          <h1>People at <span className="emph">your facility</span>.</h1>
         </div>
       </div>
 
-      <div className="ai-banner">
-        <b>◆ ReferralAgent</b> picks the best-responding specialist based on SLA history and
-        distance. Response times tracked automatically.
+      <div className="toolbar">
+        <div className="seg">
+          {ROLES.map((r) => (
+            <button
+              key={r.r}
+              type="button"
+              className={filter === r.r ? 'active' : undefined}
+              onClick={() => setFilter(r.r)}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <div className="mini-search">
+          <Icon name="search" size={14} />
+          <input
+            type="text"
+            placeholder="Search name"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div className="spacer" />
+        <span className="status-pill neutral">{rows.length}</span>
       </div>
 
-      <div className="dir-grid">
-        {PROVIDERS.map((p) => (
-          <div className="dir-card" key={p.nm}>
-            <span className="av">{p.initials}</span>
-            <div style={{ flex: 1 }}>
-              <div className="nm">{p.nm}</div>
-              <div className="sub">
-                {p.sp}
-                <span className="dot">·</span>
-                {p.org}
-              </div>
-              <div className="sub" style={{ marginTop: '0.125rem' }}>
-                {p.loc}
-                <span className="dot">·</span>
-                {p.sla}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {error && <div style={{ color: 'var(--danger, #c0392b)', margin: '12px 0' }}>{error}</div>}
+
+      {!providers ? (
+        <div className="muted">Loading…</div>
+      ) : rows.length === 0 ? (
+        <div className="card"><div className="muted">No matches.</div></div>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.id}>
+                <td>
+                  {p.role === 'surgeon' || p.role === 'anesthesia' ? 'Dr. ' : ''}
+                  {p.lastName}, {p.firstName}
+                </td>
+                <td><span className={`role-pill role-${p.role}`}>{p.role}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </AppShell>
   );
 }

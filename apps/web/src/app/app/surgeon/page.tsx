@@ -1,59 +1,118 @@
 'use client';
 
+/**
+ * Surgeon · My cases — real, scoped to current user.
+ *
+ * The api's GET /cases returns only the cases where surgeon_id = me.id
+ * (see CasesController.scopeFor). No client-side filtering needed.
+ */
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
 import { Icon } from '@/components/shell/icons';
-import { PATIENTS, type CaseStatus } from '@/mocks/fixtures/admin';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
+
+type CaseStatus =
+  | 'referral' | 'workup' | 'clearance' | 'pre_hab' | 'ready' | 'completed' | 'cancelled';
+
+interface CaseRow {
+  id: string;
+  patientId: string;
+  procedureCode: string | null;
+  procedureDescription: string | null;
+  status: CaseStatus;
+  readinessScore: number | null;
+  surgeryDate: string | null;
+  createdAt: string;
+}
+interface Patient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  athenaResourceId: string | null;
+  mrn: string | null;
+}
 
 const STATUS_FILTERS: Array<{ s: 'all' | CaseStatus; label: string }> = [
-  { s: 'all', label: 'All' },
-  { s: 'cleared', label: 'Cleared' },
-  { s: 'conditional', label: 'Conditional' },
-  { s: 'workup', label: 'In workup' },
-  { s: 'deferred', label: 'Deferred' },
+  { s: 'all',        label: 'All' },
+  { s: 'referral',   label: 'Referral' },
+  { s: 'workup',     label: 'Workup' },
+  { s: 'clearance',  label: 'Clearance' },
+  { s: 'ready',      label: 'Ready' },
 ];
 
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+  return JSON.parse(text) as T;
 }
-function daysTo(d: string) {
-  return Math.max(0, Math.round((new Date(d).getTime() - Date.now()) / 86_400_000));
+function ageOf(dob: string): number {
+  return Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+}
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function daysTo(iso: string): number {
+  return Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000));
+}
+function initials(first: string, last: string): string {
+  return ((first[0] ?? '') + (last[0] ?? '')).toUpperCase() || '?';
 }
 
 export default function SurgeonCasesPage() {
+  const me = useCurrentUser();
+  const [cases, setCases] = useState<CaseRow[] | null>(null);
+  const [patients, setPatients] = useState<Map<string, Patient>>(new Map());
+  const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<'all' | CaseStatus>('all');
   const [query, setQuery] = useState('');
 
+  async function load() {
+    setError(null);
+    try {
+      const [c, p] = await Promise.all([
+        jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?limit=100')),
+        jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
+      ]);
+      setCases(c.items);
+      const m = new Map<string, Patient>();
+      p.items.forEach((x) => m.set(x.id, x));
+      setPatients(m);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
   const rows = useMemo(() => {
-    const q = query.toLowerCase();
-    return PATIENTS.filter(
-      (p) =>
-        (status === 'all' || p.status === status) &&
-        (q === '' || p.name.toLowerCase().includes(q) || p.procedure.toLowerCase().includes(q)),
-    ).sort((a, b) => a.readiness - b.readiness);
-  }, [status, query]);
+    if (!cases) return [];
+    const q = query.trim().toLowerCase();
+    return cases.filter((c) => {
+      if (status !== 'all' && c.status !== status) return false;
+      if (!q) return true;
+      const p = patients.get(c.patientId);
+      const text = [
+        p?.firstName, p?.lastName, p?.mrn, c.procedureCode, c.procedureDescription,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return text.includes(q);
+    });
+  }, [cases, status, query, patients]);
 
   return (
     <AppShell breadcrumbs={['Surgeon', 'My cases']}>
       <div className="page-head">
         <div>
-          <span className="eyebrow">Surgeon · Dr. Oduya</span>
-          <h1>
-            My <span className="emph">cases</span>.
-          </h1>
+          <span className="eyebrow">
+            Surgeon{me ? ` · Dr. ${me.lastName}` : ''}
+          </span>
+          <h1>My <span className="emph">cases</span>.</h1>
         </div>
         <div className="page-actions">
           <Link className="btn btn-outline-dark" href="/app/surgeon/schedule">Schedule</Link>
-          <Link className="btn btn-primary" href="/app/surgeon/new">New case</Link>
+          <button className="btn btn-outline-dark" onClick={() => void load()}>Refresh</button>
         </div>
-      </div>
-
-      <div className="kpi-mini">
-        <div className="k"><div className="l">Open cases</div><div className="v">24</div></div>
-        <div className="k"><div className="l">Ready for OR</div><div className="v">7</div></div>
-        <div className="k"><div className="l">Awaiting sign-off</div><div className="v">5</div></div>
-        <div className="k"><div className="l">Next surgery</div><div className="v">Apr 28</div></div>
       </div>
 
       <div className="toolbar">
@@ -73,7 +132,7 @@ export default function SurgeonCasesPage() {
           <Icon name="search" size={14} />
           <input
             type="text"
-            placeholder="Search patient or procedure"
+            placeholder="Search patient, procedure"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -82,34 +141,78 @@ export default function SurgeonCasesPage() {
         <span className="status-pill neutral">{rows.length} case{rows.length === 1 ? '' : 's'}</span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-        {rows.map((p) => (
-          <Link className="case-card" href={`/app/surgeon/cases/${p.id}`} key={p.id}>
-            <div className="av">{p.initials}</div>
-            <div>
-              <div className="nm">
-                {p.name} <span style={{ color: 'var(--ink-500)', fontWeight: 400 }}>· {p.age}y</span>
-              </div>
-              <div className="sub">
-                {p.procedure} · CPT {p.procedureCode}
-              </div>
-            </div>
-            <div className="readiness-bar" style={{ minWidth: 140 }}>
-              <div className="track">
-                <div className="fill" style={{ width: `${p.readiness}%` }} />
-              </div>
-              <div className="val">{p.readiness}</div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.375rem' }}>
-              <span className={`status-pill ${p.status}`}>{p.status}</span>
-              <div className="date">
-                {fmtDate(p.surgeryDate)}
-                <span className="d">IN {daysTo(p.surgeryDate)} DAYS</span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {error && <div style={{ color: 'var(--danger, #c0392b)', margin: '12px 0' }}>{error}</div>}
+
+      {!cases ? (
+        <div className="muted">Loading…</div>
+      ) : cases.length === 0 ? (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="muted">
+            No cases assigned to you yet. An admin needs to create a case and assign you as the
+            surgeon (see <Link href="/app/admin/cases" style={{ textDecoration: 'underline' }}>admin · cases</Link>).
+          </div>
+        </div>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Patient</th>
+              <th>Procedure</th>
+              <th>Surgery</th>
+              <th>Readiness</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => {
+              const p = patients.get(c.patientId);
+              return (
+                <tr key={c.id} style={{ cursor: 'pointer' }}
+                    onClick={() => { window.location.href = `/app/surgeon/cases/${c.id}`; }}>
+                  <td>
+                    <div className="row-with-avatar">
+                      <span className="avatar-xs">{p ? initials(p.firstName, p.lastName) : '?'}</span>
+                      <div>
+                        <div className="cell-primary">{p ? `${p.firstName} ${p.lastName}` : c.patientId.slice(0, 8)}</div>
+                        <div className="cell-sub">
+                          {p ? `${p.athenaResourceId ?? p.mrn ?? ''} · age ${ageOf(p.dob)}` : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="cell-primary">{c.procedureDescription ?? '—'}</div>
+                    <div className="cell-sub">{c.procedureCode ? `CPT ${c.procedureCode}` : ''}</div>
+                  </td>
+                  <td>
+                    {c.surgeryDate ? (
+                      <>
+                        {fmtDate(c.surgeryDate)}
+                        <div className="cell-sub">in {daysTo(c.surgeryDate)} days</div>
+                      </>
+                    ) : (
+                      <span className="muted">unscheduled</span>
+                    )}
+                  </td>
+                  <td>
+                    {c.readinessScore != null ? (
+                      <div className="readiness-bar">
+                        <div className="track">
+                          <div className="fill" style={{ width: `${c.readinessScore}%` }} />
+                        </div>
+                        <div className="val">{c.readinessScore}</div>
+                      </div>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                  <td><span className={`status-pill ${c.status}`}>{c.status}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </AppShell>
   );
 }

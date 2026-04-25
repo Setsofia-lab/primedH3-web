@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { TerminusModule } from '@nestjs/terminus';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
+import { CasesModule } from './cases/cases.module';
 import { ConfigModule } from './config/config.module';
 import { DbModule } from './db/db.module';
 import { HealthModule } from './health/health.module';
@@ -44,6 +45,7 @@ import { RedisModule } from './redis/redis.module';
     AthenaModule,
     HealthModule,
     AdminModule,
+    CasesModule,
   ],
 })
 export class AppModule {}

@@ -1,172 +1,208 @@
+'use client';
+
+/**
+ * Coordinator · Board — real cases, kanban-style by lifecycle status.
+ *
+ * Columns mirror the case_status enum (Constitution §3.4): Referral →
+ * Workup → Clearance → Pre-hab → Ready → Completed. Cancelled cases
+ * are hidden from the board (they show on a separate filter view in M8).
+ */
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 
-interface BoardCard {
+type CaseStatus =
+  | 'referral' | 'workup' | 'clearance' | 'pre_hab' | 'ready' | 'completed' | 'cancelled';
+
+interface CaseRow {
   id: string;
-  nm: string;
-  initials: string;
-  pr: string;
-  ai: string;
-  steps: number;
-  stuck: boolean;
-  age: string;
+  patientId: string;
+  surgeonId: string | null;
+  procedureCode: string | null;
+  procedureDescription: string | null;
+  status: CaseStatus;
+  readinessScore: number | null;
+  surgeryDate: string | null;
+  createdAt: string;
 }
+interface Patient { id: string; firstName: string; lastName: string; dob: string; }
+interface Provider { id: string; firstName: string; lastName: string; role: string; }
 
-interface BoardCol {
-  col: 'intake' | 'clearance' | 'sched' | 'preop' | 'surgery';
-  title: string;
-  patients: BoardCard[];
+const COLUMNS: { status: CaseStatus; title: string; hint: string }[] = [
+  { status: 'referral',  title: 'Referral',  hint: 'New' },
+  { status: 'workup',    title: 'Workup',    hint: 'Labs / imaging' },
+  { status: 'clearance', title: 'Clearance', hint: 'Anesthesia review' },
+  { status: 'pre_hab',   title: 'Pre-hab',   hint: 'Optimisation' },
+  { status: 'ready',     title: 'Ready',     hint: 'Cleared for OR' },
+  { status: 'completed', title: 'Completed', hint: 'Post-op' },
+];
+
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
+  return JSON.parse(text) as T;
 }
-
-const BOARD: BoardCol[] = [
-  {
-    col: 'intake',
-    title: 'Intake',
-    patients: [
-      { id: 'pt_maya_khan',  nm: 'Maya Khan',  initials: 'MK', pr: 'Inguinal hernia repair',     ai: 'Intake parsed', steps: 1, stuck: true,  age: '52h · no reply' },
-      { id: 'pt_tomas_vale', nm: 'Tomás Valle', initials: 'TV', pr: 'Laparoscopic appendectomy', ai: 'Intake parsed', steps: 1, stuck: false, age: 'Opened 2h ago' },
-    ],
-  },
-  {
-    col: 'clearance',
-    title: 'Clearance',
-    patients: [
-      { id: 'pt_alex_rivera', nm: 'Alex Rivera', initials: 'AR', pr: 'Lap cholecystectomy',  ai: 'Pre-op drafted',     steps: 2, stuck: false, age: 'Awaiting Dr. Chen' },
-      { id: 'pt_daniel_shaw', nm: 'Daniel Shaw', initials: 'DS', pr: 'Tonsillectomy',         ai: 'Cards consult sent', steps: 2, stuck: true,  age: '96h · stuck' },
-      { id: 'pt_nora_bright', nm: 'Nora Bright', initials: 'NB', pr: 'Thyroidectomy',         ai: 'Labs chasing',       steps: 2, stuck: true,  age: '72h · labs' },
-    ],
-  },
-  {
-    col: 'sched',
-    title: 'Scheduling',
-    patients: [
-      { id: 'pt_jordan_park', nm: 'Jordan Park', initials: 'JP', pr: 'Total knee arthroplasty', ai: '3 OR slots proposed', steps: 3, stuck: false, age: 'Pt choosing' },
-      { id: 'pt_ella_guo',    nm: 'Ella Guo',    initials: 'EG', pr: 'Septoplasty',             ai: 'Slot held',           steps: 3, stuck: false, age: 'Confirmed pending' },
-    ],
-  },
-  {
-    col: 'preop',
-    title: 'Pre-op',
-    patients: [
-      { id: 'pt_raj_patel',  nm: 'Raj Patel',  initials: 'RP', pr: 'Umbilical hernia repair', ai: 'Day-of kit drafted',   steps: 4, stuck: false, age: 'T-minus 1d' },
-      { id: 'pt_lena_rossi', nm: 'Lena Rossi', initials: 'LR', pr: 'Lap cholecystectomy',     ai: 'Education delivered',  steps: 4, stuck: false, age: 'T-minus 2d' },
-    ],
-  },
-  {
-    col: 'surgery',
-    title: 'Surgery',
-    patients: [
-      { id: 'pt_kai_nielsen', nm: 'Kai Nielsen', initials: 'KN', pr: 'Inguinal hernia repair', ai: 'Follow-up scheduled', steps: 5, stuck: false, age: 'Yesterday · OR-3' },
-    ],
-  },
-];
-
-const FOCUS = [
-  { initials: 'DS', name: 'Daniel Shaw', why: 'Cardiology consult > 96h waiting · ReferralAgent auto-pinged 2x', age: '96h' },
-  { initials: 'NB', name: 'Nora Bright', why: 'Labs not returned from OutsideFacility · DocumentationAgent chasing', age: '72h' },
-  { initials: 'MK', name: 'Maya Khan',   why: 'Patient unresponsive to SMS/email · 3 nudges sent', age: '52h' },
-];
-
-const WEEK = [
-  { day: 'Mon Apr 28', count: '3 surgeries' },
-  { day: 'Tue Apr 29', count: '1 surgery' },
-  { day: 'Wed Apr 30', count: '2 surgeries' },
-  { day: 'Thu May 01', count: '—' },
-  { day: 'Fri May 02', count: '2 surgeries' },
-];
+function ageOf(dob: string): number {
+  return Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+}
+function initials(first: string, last: string): string {
+  return ((first[0] ?? '') + (last[0] ?? '')).toUpperCase() || '?';
+}
+function fmtDateShort(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default function CoordinatorBoardPage() {
+  const me = useCurrentUser();
+  const [cases, setCases] = useState<CaseRow[] | null>(null);
+  const [patients, setPatients] = useState<Map<string, Patient>>(new Map());
+  const [providers, setProviders] = useState<Map<string, Provider>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setError(null);
+    try {
+      const [c, p, pr] = await Promise.all([
+        jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?limit=200')),
+        jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
+        jsonOrThrow<{ items: Provider[] }>(await fetch('/api/providers')),
+      ]);
+      setCases(c.items);
+      const pm = new Map<string, Patient>();
+      p.items.forEach((x) => pm.set(x.id, x));
+      setPatients(pm);
+      const prm = new Map<string, Provider>();
+      pr.items.forEach((x) => prm.set(x.id, x));
+      setProviders(prm);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  const grouped = useMemo(() => {
+    const out: Record<CaseStatus, CaseRow[]> = {
+      referral: [], workup: [], clearance: [], pre_hab: [], ready: [], completed: [], cancelled: [],
+    };
+    cases?.forEach((c) => {
+      out[c.status].push(c);
+    });
+    return out;
+  }, [cases]);
+
+  const total = cases?.filter((c) => c.status !== 'cancelled').length ?? 0;
+
   return (
     <AppShell breadcrumbs={['Coordinator', 'Board']}>
       <div className="page-head">
         <div>
-          <span className="eyebrow">Coordinator · Priya Okafor, RN</span>
-          <h1>
-            Cases in <span className="emph"><em>flight</em></span>.
-          </h1>
+          <span className="eyebrow">
+            Coordinator{me ? ` · ${me.firstName} ${me.lastName}` : ''}
+          </span>
+          <h1>Pre-op <span className="emph">board</span>.</h1>
         </div>
         <div className="page-actions">
-          <Link className="btn btn-outline-dark" href="/app/coordinator/tasks">Tasks · 42</Link>
-          <Link className="btn btn-primary" href="/app/coordinator/messages">Messages · 7</Link>
+          <button className="btn btn-outline-dark" onClick={() => void load()}>Refresh</button>
         </div>
       </div>
 
-      <div className="kpi-mini">
-        <div className="k"><div className="l">Cases active</div><div className="v">24</div></div>
-        <div className="k"><div className="l">Stuck &gt; 48h</div><div className="v">3</div></div>
-        <div className="k"><div className="l">Surgeries this week</div><div className="v">8</div></div>
-        <div className="k"><div className="l">AI drafts pending</div><div className="v">12</div></div>
-      </div>
+      {error && <div style={{ color: 'var(--danger, #c0392b)', marginBottom: 12 }}>{error}</div>}
 
-      <div className="focus-grid">
-        <div className="focus-card">
-          <span className="eyebrow">TODAY&apos;S FOCUS · AI-TRIAGED</span>
-          <h2>Three cases are <em>stuck</em>. Your attention unblocks them.</h2>
-          <div className="ul">
-            {FOCUS.map((f) => (
-              <div className="itm" key={f.initials}>
-                <span className="av">{f.initials}</span>
-                <div className="why">
-                  <b>{f.name}</b>
-                  <div className="s">{f.why}</div>
-                </div>
-                <span className="age">{f.age}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      {!cases ? (
+        <div className="muted">Loading…</div>
+      ) : total === 0 ? (
         <div className="card">
-          <div className="card-head"><h3>This week</h3></div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-            {WEEK.map((w) => (
-              <div key={w.day} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                <span style={{ color: 'var(--ink-500)' }}>{w.day}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{w.count}</span>
-              </div>
-            ))}
+          <div className="muted">
+            No active cases at your facility. An admin can create cases in{' '}
+            <Link href="/app/admin/cases" style={{ textDecoration: 'underline' }}>admin · cases</Link>.
           </div>
         </div>
-      </div>
-
-      <div className="ai-banner">
-        <b>AI-drafted tasks</b> on every card. Each move between columns fires the right agent —
-        Intake → Risk, Clearance → Anesthesia, Scheduling → Comms.
-      </div>
-
-      <div className="kanban">
-        {BOARD.map((b) => (
-          <div className={`kcol ${b.col}`} key={b.col}>
-            <div className="kh">
-              <span className="kt">{b.title}</span>
-              <span className="kc">{b.patients.length}</span>
-            </div>
-            {b.patients.map((p) => (
-              <Link
-                key={p.id}
-                className={`kcard${p.stuck ? ' stuck' : ''}`}
-                href={`/app/surgeon/cases/${p.id}`}
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(220px, 1fr))`,
+            gap: 12,
+            overflowX: 'auto',
+            paddingBottom: 12,
+          }}
+        >
+          {COLUMNS.map((col) => {
+            const items = grouped[col.status] ?? [];
+            return (
+              <div
+                key={col.status}
+                className="card"
+                style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 240 }}
               >
-                <div className="top">
-                  <span className="av">{p.initials}</span>
+                <div className="card-head" style={{ marginBottom: 4 }}>
                   <div>
-                    <div className="nm">{p.nm}</div>
-                    <div className="pr">{p.pr}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{col.title}</div>
+                    <div className="muted" style={{ fontSize: 11 }}>{col.hint}</div>
                   </div>
+                  <span className="status-pill neutral" style={{ fontSize: 11 }}>{items.length}</span>
                 </div>
-                <div className="bar">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <span key={i} className={`seg${i < p.steps ? ' on' : ''}`} />
-                  ))}
-                </div>
-                <div className="meta">
-                  <span className="when">{p.age}</span>
-                  <span className="ai">◆ {p.ai}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ))}
-      </div>
+                {items.length === 0 ? (
+                  <div className="muted" style={{ fontSize: 12, padding: '12px 4px' }}>—</div>
+                ) : (
+                  items.map((c) => {
+                    const p = patients.get(c.patientId);
+                    const s = c.surgeonId ? providers.get(c.surgeonId) : null;
+                    return (
+                      <Link
+                        key={c.id}
+                        href={`/app/admin/cases/${c.id}`}
+                        style={{
+                          display: 'block',
+                          padding: 10,
+                          background: 'var(--surface-100, #fff)',
+                          border: '1px solid var(--border, #eaeaea)',
+                          borderRadius: 8,
+                          textDecoration: 'none',
+                          color: 'inherit',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <span className="avatar-xs">{p ? initials(p.firstName, p.lastName) : '?'}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {p ? `${p.firstName} ${p.lastName}` : c.patientId.slice(0, 8)}
+                            </div>
+                            <div className="muted" style={{ fontSize: 11 }}>
+                              {p ? `${ageOf(p.dob)}y` : ''}
+                              {s ? ` · Dr. ${s.lastName}` : ''}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-700, #444)' }}>
+                          {c.procedureDescription ?? c.procedureCode ?? 'procedure tbd'}
+                        </div>
+                        {c.surgeryDate && (
+                          <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                            Surgery {fmtDateShort(c.surgeryDate)}
+                          </div>
+                        )}
+                        {c.readinessScore != null && (
+                          <div style={{ marginTop: 6 }}>
+                            <div className="readiness-bar">
+                              <div className="track">
+                                <div className="fill" style={{ width: `${c.readinessScore}%` }} />
+                              </div>
+                              <div className="val" style={{ fontSize: 11 }}>{c.readinessScore}</div>
+                            </div>
+                          </div>
+                        )}
+                      </Link>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </AppShell>
   );
 }
