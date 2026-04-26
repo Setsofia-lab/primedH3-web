@@ -11,6 +11,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Client } from 'pg';
 import { resolveRuntimeSecrets } from '../config/secret-resolver';
+import { seedAgents } from './seed-agents';
 
 async function main(): Promise<void> {
   await resolveRuntimeSecrets();
@@ -31,6 +32,12 @@ async function main(): Promise<void> {
   await migrate(db, { migrationsFolder: `${__dirname}/migrations` });
   // eslint-disable-next-line no-console
   console.log('[migrate] done');
+
+  // eslint-disable-next-line no-console
+  console.log('[migrate] seeding agent registry…');
+  const n = await seedAgents(db);
+  // eslint-disable-next-line no-console
+  console.log(`[migrate] upserted ${n} agents`);
 
   await client.end();
 }
