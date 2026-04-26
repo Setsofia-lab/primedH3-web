@@ -134,7 +134,7 @@ export class AgentStack extends Stack {
     const workerSg = new ec2.SecurityGroup(this, 'WorkerSg', {
       vpc: props.vpc,
       allowAllOutbound: true,
-      description: 'Agent worker — outbound only (SQS, Bedrock, Aurora, Redis)',
+      description: 'Agent worker - outbound only (SQS, Bedrock, Aurora, Redis)',
     });
     // Use low-level CfnSecurityGroupIngress (same pattern as ApiStack)
     // so we don't pull DataStack's SG into our synth graph and create a

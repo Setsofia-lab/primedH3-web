@@ -10,8 +10,10 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { resolveRuntimeSecrets } from './config/secret-resolver';
 
 async function bootstrap(): Promise<void> {
+  await resolveRuntimeSecrets();
   const app = await NestFactory.createApplicationContext(AppModule, {
     bufferLogs: true,
   });
