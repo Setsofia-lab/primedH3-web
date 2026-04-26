@@ -35,9 +35,11 @@ async function main(): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log('[migrate] seeding agent registry…');
-  const n = await seedAgents(db);
+  const seeded = await seedAgents(db);
   // eslint-disable-next-line no-console
-  console.log(`[migrate] upserted ${n} agents`);
+  console.log(
+    `[migrate] upserted ${seeded.agents} agents and ${seeded.prompts} initial prompt(s)`,
+  );
 
   await client.end();
 }

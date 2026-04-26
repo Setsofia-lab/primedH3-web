@@ -43,6 +43,17 @@ export interface AgentInput {
   readonly payload: Record<string, unknown>;
 }
 
+/**
+ * Optional per-run overrides resolved from the agent_prompts registry.
+ * If absent, agents use their hardcoded defaults — keeps the runtime
+ * working even when the registry is empty (first deploy, fresh DB).
+ */
+export interface AgentPromptOverrides {
+  readonly systemPrompt?: string;
+  readonly model?: ModelId;
+  readonly temperature?: number;
+}
+
 export interface CaseContext {
   readonly caseId: string;
   readonly facilityId: string;
@@ -80,5 +91,9 @@ export interface Agent {
   readonly defaultModel: ModelId;
   readonly defaultTemperature: number;
 
-  run(input: AgentInput, ctx: CaseContext): Promise<AgentRunResult>;
+  run(
+    input: AgentInput,
+    ctx: CaseContext,
+    overrides?: AgentPromptOverrides,
+  ): Promise<AgentRunResult>;
 }

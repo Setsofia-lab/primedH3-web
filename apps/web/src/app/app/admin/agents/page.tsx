@@ -4,9 +4,11 @@
  * Admin · Agents — registry + recent runs (M11.8).
  *
  * Top: per-agent summary card (key, default model, enabled, last run).
+ * Click a row to drill into the prompt-version editor (M11.7).
  * Below: paginated stream of agent_runs with status pill, latency,
  * cost, hitl status, and an expandable input/output diff.
  */
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
 import { Icon } from '@/components/shell/icons';
@@ -146,7 +148,9 @@ export default function AdminAgentsPage() {
               {registry.map((a) => (
                 <tr key={a.id}>
                   <td><code>{a.key}</code></td>
-                  <td>{a.displayName}</td>
+                  <td>
+                    <Link href={`/app/admin/agents/${a.key}`}>{a.displayName}</Link>
+                  </td>
                   <td className="muted">{a.role}</td>
                   <td className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
                     {a.defaultModel}

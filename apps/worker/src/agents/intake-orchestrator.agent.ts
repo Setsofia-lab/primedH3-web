@@ -21,6 +21,7 @@ import { z } from 'zod';
 import {
   type Agent,
   type AgentInput,
+  type AgentPromptOverrides,
   type AgentRunResult,
   type CaseContext,
   type ModelId,
@@ -138,7 +139,11 @@ export class IntakeOrchestratorAgent implements Agent {
 
   constructor(private readonly bedrock: BedrockService) {}
 
-  async run(input: AgentInput, ctx: CaseContext): Promise<AgentRunResult> {
+  async run(
+    input: AgentInput,
+    ctx: CaseContext,
+    overrides?: AgentPromptOverrides,
+  ): Promise<AgentRunResult> {
     const userMessage = JSON.stringify({
       procedureCode: ctx.procedureCode ?? null,
       procedureDescription: ctx.procedureDescription ?? null,
@@ -153,11 +158,15 @@ export class IntakeOrchestratorAgent implements Agent {
     let completionTokens = 0;
     let costUsdMicros = 0;
 
+    const systemPrompt = overrides?.systemPrompt ?? SYSTEM_PROMPT;
+    const model = overrides?.model ?? this.defaultModel;
+    const temperature = overrides?.temperature ?? this.defaultTemperature;
+
     try {
       const res = await this.bedrock.messages({
-        model: this.defaultModel,
-        system: SYSTEM_PROMPT,
-        temperature: this.defaultTemperature,
+        model,
+        system: systemPrompt,
+        temperature,
         messages: [{ role: 'user', content: userMessage }],
         maxTokens: 1500,
       });

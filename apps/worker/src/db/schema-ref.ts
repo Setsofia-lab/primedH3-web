@@ -7,13 +7,16 @@
  * shared package — we do that when the worker outgrows two tables.)
  */
 import {
+  boolean,
   index,
   integer,
   jsonb,
   pgTable,
   pgEnum,
+  real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -55,6 +58,45 @@ export const tasks = pgTable('tasks', {
   completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
   completedBy: uuid('completed_by'),
 });
+
+// ----- agents + agent_prompts (read-only for the worker) -------------
+
+export const agents = pgTable(
+  'agents',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    key: varchar('key', { length: 64 }).notNull(),
+    displayName: varchar('display_name', { length: 128 }).notNull(),
+    role: text('role').notNull(),
+    defaultModel: varchar('default_model', { length: 64 }).notNull(),
+    defaultTemperature: real('default_temperature').notNull().default(0.2),
+    enabled: boolean('enabled').notNull().default(true),
+  },
+  (table) => [uniqueIndex('agents_key_idx').on(table.key)],
+);
+
+export const agentPrompts = pgTable(
+  'agent_prompts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    agentId: uuid('agent_id').notNull(),
+    version: integer('version').notNull(),
+    systemPrompt: text('system_prompt').notNull(),
+    model: varchar('model', { length: 64 }).notNull(),
+    temperature: real('temperature').notNull(),
+    isActive: boolean('is_active').notNull().default(false),
+    note: text('note'),
+    authorUserId: uuid('author_user_id'),
+  },
+  (table) => [
+    uniqueIndex('agent_prompts_agent_version_idx').on(table.agentId, table.version),
+    index('agent_prompts_active_idx').on(table.agentId, table.isActive),
+  ],
+);
 
 // ----- agent_runs (the worker's primary write target) ----------------
 

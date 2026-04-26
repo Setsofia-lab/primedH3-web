@@ -15,13 +15,15 @@
  * function.
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { DB_CLIENT, type WorkerDb } from '../db/db.module';
+import { applyHardStops } from '../policies/hard-stops';
 import { agentRuns, tasks } from '../db/schema-ref';
 import { agentMessageSchema, type AgentMessage } from './agent-message.schema';
 import { type Agent, type AgentRunResult } from './agent.interface';
 import { IntakeOrchestratorAgent } from './intake-orchestrator.agent';
+import { PromptRegistryService } from './prompt-registry.service';
 
 @Injectable()
 export class AgentDispatcherService {
@@ -31,6 +33,7 @@ export class AgentDispatcherService {
   constructor(
     @Inject(DB_CLIENT) private readonly db: WorkerDb,
     private readonly intake: IntakeOrchestratorAgent,
+    private readonly prompts: PromptRegistryService,
   ) {
     this.registry = {
       [intake.id]: intake,
@@ -59,7 +62,14 @@ export class AgentDispatcherService {
       return;
     }
 
-    await this.markRunning(parsed);
+    const activePrompt = await this.prompts.getActive(parsed.agentId).catch((err) => {
+      this.logger.error(
+        `prompt registry lookup failed for ${parsed.agentId}: ${(err as Error).message}`,
+      );
+      return null;
+    });
+
+    await this.markRunning(parsed, activePrompt?.id ?? null);
 
     const startedAt = Date.now();
     let result: AgentRunResult;
@@ -74,6 +84,13 @@ export class AgentDispatcherService {
           procedureDescription: parsed.context.procedureDescription ?? undefined,
           surgeonId: parsed.context.surgeonId ?? null,
         },
+        activePrompt
+          ? {
+              systemPrompt: activePrompt.systemPrompt,
+              model: activePrompt.model,
+              temperature: activePrompt.temperature,
+            }
+          : undefined,
       );
     } catch (err) {
       const message = (err as Error).message;
@@ -86,6 +103,15 @@ export class AgentDispatcherService {
     }
 
     const latencyMs = Date.now() - startedAt;
+
+    // Hard-stops can override the agent's self-reported hitl status.
+    // If a deny-list rule trips, we force `pending` and skip side-effects
+    // until a human approves from the admin runs panel.
+    const stops = applyHardStops(parsed.agentId, result.output);
+    const hitlStatus = stops.hitlRequired
+      ? ('pending' as const)
+      : (result.hitlStatus ?? 'n_a');
+    const stopsNote = stops.hitlRequired ? stops.reasons.join('\n') : null;
 
     // Persist the run row.
     await this.db
@@ -101,12 +127,17 @@ export class AgentDispatcherService {
         totalCostUsdMicros: result.costUsdMicros ?? 0,
         latencyMs,
         completedAt: new Date(),
-        hitlStatus: result.hitlStatus ?? 'n_a',
+        hitlStatus,
+        errorMessage: stopsNote,
       })
       .where(eq(agentRuns.id, parsed.runId));
 
-    // Side-effects.
-    if (parsed.agentId === 'intake_orchestrator') {
+    // Side-effects only fire when nothing is gating on a human.
+    if (hitlStatus === 'pending') {
+      this.logger.warn(
+        `${parsed.agentId} run=${parsed.runId} blocked by hard-stops; skipping side-effects: ${stopsNote}`,
+      );
+    } else if (parsed.agentId === 'intake_orchestrator') {
       await this.applyIntakeOutput(parsed, result.output);
     }
 
@@ -115,10 +146,14 @@ export class AgentDispatcherService {
     );
   }
 
-  private async markRunning(msg: AgentMessage): Promise<void> {
+  private async markRunning(msg: AgentMessage, promptVersionId: string | null): Promise<void> {
     await this.db
       .update(agentRuns)
-      .set({ status: 'running', startedAt: new Date() })
+      .set({
+        status: 'running',
+        startedAt: new Date(),
+        promptVersionId,
+      })
       .where(eq(agentRuns.id, msg.runId));
   }
 

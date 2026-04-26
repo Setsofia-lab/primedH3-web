@@ -106,6 +106,26 @@ export const listAgentRunsQuerySchema = z.object({
 });
 export type ListAgentRunsQuery = z.infer<typeof listAgentRunsQuerySchema>;
 
+export const modelIdValues = [
+  'anthropic.claude-sonnet-4-7',
+  'anthropic.claude-opus-4-7',
+  'anthropic.claude-haiku-4-5',
+] as const;
+
+/**
+ * New prompt version body. Versions auto-increment per-agent so the
+ * client never sets `version`. The created row is inactive by default;
+ * activate via the dedicated `/activate` endpoint to keep promotion
+ * an explicit, atomic step.
+ */
+export const createPromptVersionSchema = z.object({
+  systemPrompt: z.string().min(20).max(20_000),
+  model: z.enum(modelIdValues),
+  temperature: z.number().min(0).max(1),
+  note: z.string().max(2000).optional(),
+});
+export type CreatePromptVersionInput = z.infer<typeof createPromptVersionSchema>;
+
 // Documents -------------------------------------------------------
 
 export const documentKindValues = [
