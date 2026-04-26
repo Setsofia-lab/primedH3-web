@@ -19,11 +19,13 @@ import { eq } from 'drizzle-orm';
 
 import { DB_CLIENT, type WorkerDb } from '../db/db.module';
 import { applyHardStops } from '../policies/hard-stops';
-import { agentRuns, tasks } from '../db/schema-ref';
+import { agentRuns, cases, tasks } from '../db/schema-ref';
 import { agentMessageSchema, type AgentMessage } from './agent-message.schema';
 import { type Agent, type AgentRunResult } from './agent.interface';
 import { IntakeOrchestratorAgent } from './intake-orchestrator.agent';
 import { PromptRegistryService } from './prompt-registry.service';
+import { ReadinessAgent } from './readiness.agent';
+import { RiskScreeningAgent } from './risk-screening.agent';
 
 @Injectable()
 export class AgentDispatcherService {
@@ -33,10 +35,14 @@ export class AgentDispatcherService {
   constructor(
     @Inject(DB_CLIENT) private readonly db: WorkerDb,
     private readonly intake: IntakeOrchestratorAgent,
+    private readonly risk: RiskScreeningAgent,
+    private readonly readiness: ReadinessAgent,
     private readonly prompts: PromptRegistryService,
   ) {
     this.registry = {
       [intake.id]: intake,
+      [risk.id]: risk,
+      [readiness.id]: readiness,
     };
   }
 
@@ -139,6 +145,8 @@ export class AgentDispatcherService {
       );
     } else if (parsed.agentId === 'intake_orchestrator') {
       await this.applyIntakeOutput(parsed, result.output);
+    } else if (parsed.agentId === 'readiness') {
+      await this.applyReadinessOutput(parsed, result.output);
     }
 
     this.logger.log(
@@ -210,6 +218,38 @@ export class AgentDispatcherService {
     } catch (err) {
       this.logger.error(
         `failed to insert IntakeOrchestrator tasks for case=${msg.context.caseId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * ReadinessAgent side-effect: write the computed score back onto
+   * `cases.readiness_score`. The patient PWA + coordinator board read
+   * directly from the column; the agent_runs row keeps the audit trail.
+   */
+  private async applyReadinessOutput(
+    msg: AgentMessage,
+    output: Record<string, unknown>,
+  ): Promise<void> {
+    const score = (output as { score?: unknown }).score;
+    if (typeof score !== 'number' || !Number.isFinite(score)) {
+      this.logger.warn(
+        `ReadinessAgent run=${msg.runId} produced no numeric score; skipping writeback`,
+      );
+      return;
+    }
+    const clamped = Math.min(100, Math.max(0, Math.round(score)));
+    try {
+      await this.db
+        .update(cases)
+        .set({ readinessScore: clamped, updatedAt: new Date() })
+        .where(eq(cases.id, msg.context.caseId));
+      this.logger.log(
+        `ReadinessAgent set readinessScore=${clamped} for case=${msg.context.caseId}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `failed to update readinessScore for case=${msg.context.caseId}: ${(err as Error).message}`,
       );
     }
   }

@@ -44,6 +44,7 @@ import type { AuthContext } from '../auth/auth-context';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
 import { cases, tasks, type Task, type User } from '../db/schema';
 import { meta } from '../admin/audit-meta';
+import { IntakeOrchestratorService } from './intake-orchestrator.service';
 import {
   createTaskSchema,
   listTasksQuerySchema,
@@ -63,6 +64,7 @@ export class TasksController {
   constructor(
     @Inject(DB_CLIENT) private readonly db: PrimedDb,
     private readonly audit: AuditService,
+    private readonly lifecycle: IntakeOrchestratorService,
   ) {}
 
   @Get()
@@ -195,6 +197,23 @@ export class TasksController {
       },
       meta(req),
     );
+
+    // Re-run readiness whenever status flipped to/from 'done'. The
+    // score depends on completion ratios, so any other field change
+    // doesn't move the needle and we skip the dispatch.
+    const statusFlipped =
+      input.status !== undefined && input.status !== existing.status;
+    if (statusFlipped) {
+      const [parentCase] = await this.db
+        .select()
+        .from(cases)
+        .where(eq(cases.id, existing.caseId))
+        .limit(1);
+      if (parentCase) {
+        await this.lifecycle.onCaseChanged(parentCase, 'task.statusChanged');
+      }
+    }
+
     return row!;
   }
 

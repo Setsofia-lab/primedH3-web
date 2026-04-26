@@ -1,20 +1,30 @@
 /**
- * IntakeOrchestratorService — thin api-side adapter that hands off to
- * the worker via SQS.
+ * IntakeOrchestratorService — thin api-side adapter that fans the
+ * `case.created` lifecycle event out to the agents that respond to it.
+ * The name is a holdover from M9 when only Intake fired; it now also
+ * triggers Risk + Readiness. We'll rename to CaseLifecycleService once
+ * we have callers in 4+ places.
  *
  * Phase 2 (M9 stand-in): inserted a fixed 6-task checklist inline.
- * Phase 3 (M11+M12.1): publishes an `intake_orchestrator` job to the
- * agent queue. The worker pulls it, invokes Bedrock, validates the
- * output JSON, and inserts the resulting tasks. The case-create
- * handler still returns immediately — agent runs are async.
+ * Phase 3 (M11): publishes an `intake_orchestrator` job to SQS.
+ * Phase 3 (M12.2-3): also dispatches `risk_screening` + `readiness`.
  *
- * This file deliberately keeps the same name + onCaseCreated signature
- * so the call sites in CasesAdminController + CasesController don't
- * change.
+ * Each dispatch is wrapped in its own try/catch — one failed dispatch
+ * never blocks the others, and the case create handler still returns
+ * immediately.
  */
 import { Injectable, Logger } from '@nestjs/common';
-import { AgentDispatcherService } from '../agents/agent-dispatcher.service';
+import {
+  AgentDispatcherService,
+  type AgentKey,
+} from '../agents/agent-dispatcher.service';
 import type { Case } from '../db/schema';
+
+const ON_CREATE_AGENTS: readonly AgentKey[] = [
+  'intake_orchestrator',
+  'risk_screening',
+  'readiness',
+];
 
 @Injectable()
 export class IntakeOrchestratorService {
@@ -23,18 +33,35 @@ export class IntakeOrchestratorService {
   constructor(private readonly dispatcher: AgentDispatcherService) {}
 
   async onCaseCreated(caseRow: Case, _createdByUserId: string): Promise<void> {
+    await Promise.all(
+      ON_CREATE_AGENTS.map((agentKey) => this.dispatchSafe(agentKey, 'case.created', caseRow)),
+    );
+  }
+
+  /**
+   * Re-run readiness when something the score depends on flipped.
+   * Used by tasks.controller.ts on task status updates.
+   */
+  async onCaseChanged(caseRow: Case, triggerEvent: string): Promise<void> {
+    await this.dispatchSafe('readiness', triggerEvent, caseRow);
+  }
+
+  private async dispatchSafe(
+    agentKey: AgentKey,
+    triggerEvent: string,
+    caseRow: Case,
+  ): Promise<void> {
     try {
       await this.dispatcher.dispatch({
-        agentKey: 'intake_orchestrator',
-        triggerEvent: 'case.created',
+        agentKey,
+        triggerEvent,
         caseRow,
         procedureCode: caseRow.procedureCode,
         procedureDescription: caseRow.procedureDescription,
       });
     } catch (err) {
-      // Never block case creation on the agent dispatch.
       this.logger.error(
-        `IntakeOrchestrator dispatch failed for case=${caseRow.id}: ${(err as Error).message}`,
+        `${agentKey} dispatch (${triggerEvent}) failed for case=${caseRow.id}: ${(err as Error).message}`,
       );
     }
   }

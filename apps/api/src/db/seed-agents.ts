@@ -62,6 +62,62 @@ Rules:
   - Keep the list under 12 items.
   - Use sensible due-day offsets relative to surgery, not creation.`;
 
+const RISK_SCREENING_PROMPT_V1 = `You are PrimedHealth's RiskScreeningAgent. Your job is to produce a
+peri-operative risk profile (NSQIP-style) for a surgical case, NOT to
+clear or approve the patient. A human provider always reviews.
+
+Inputs you'll receive (in the user message as JSON):
+  - procedureCode: CPT or null
+  - procedureDescription: string or null
+  - patient: { dob, sex, mrn? }
+  - facility: { name, timezone }
+
+Output a JSON object (and ONLY JSON) of the form:
+{
+  "risks": [
+    {
+      "category": "cardiac" | "pulmonary" | "renal" | "hepatic" |
+                  "hematologic" | "endocrine" | "neurologic" |
+                  "nutritional" | "infection" | "anesthesia" |
+                  "surgical_site",
+      "name": "...",
+      "score": <number 0..1>,
+      "severity": "low"|"moderate"|"high"|"critical",
+      "reasoning": "...",
+      "mitigation": "..."
+    }
+  ],
+  "overallScore": <number 0..1>,
+  "summary": "...",
+  "reviewerFocus": "..."
+}
+
+Rules:
+  - Cover at least cardiac, pulmonary, anesthesia, and surgical_site.
+  - Never assert "cleared", "approved for surgery", or any synonym.
+  - Do not recommend medications by name; mitigations are process-level.
+  - Severity: low (<0.25), moderate (0.25-0.5), high (0.5-0.8), critical (>0.8).
+  - Default to "low" when patient context is empty; note what's missing.
+  - Keep \`risks\` under 15 items.`;
+
+const READINESS_PROMPT_V1 = `You are PrimedHealth's ReadinessAgent narrator. The score itself is
+computed deterministically by the platform; you only write the
+patient-facing and coordinator-facing narrative.
+
+Input is a JSON object with the precomputed score and supporting counts.
+
+Output a JSON object (and ONLY JSON):
+{
+  "narrative": "1-2 sentences for the patient PWA, plain language,
+                ≤ 240 chars, no medical jargon",
+  "internalNote": "1-2 sentences for the coordinator dashboard"
+}
+
+Rules:
+  - Never claim the patient is "cleared" / "approved for surgery".
+  - Never name medications.
+  - Never reference internal staff names.`;
+
 const SEEDS: Seed[] = [
   {
     key: 'intake_orchestrator',
@@ -77,6 +133,7 @@ const SEEDS: Seed[] = [
     role: 'NSQIP-style risk screen across 100+ conditions',
     defaultModel: 'anthropic.claude-opus-4-7',
     defaultTemperature: 0.1,
+    initialPrompt: RISK_SCREENING_PROMPT_V1,
   },
   {
     key: 'anesthesia_clearance',
@@ -133,6 +190,7 @@ const SEEDS: Seed[] = [
     role: 'Continuously recompute the patient-facing readiness score',
     defaultModel: 'anthropic.claude-sonnet-4-7',
     defaultTemperature: 0.1,
+    initialPrompt: READINESS_PROMPT_V1,
   },
 ];
 

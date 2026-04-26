@@ -59,6 +59,24 @@ export const tasks = pgTable('tasks', {
   completedBy: uuid('completed_by'),
 });
 
+// ----- cases (read tasks + write readiness_score) --------------------
+
+export const cases = pgTable('cases', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  facilityId: uuid('facility_id').notNull(),
+  patientId: uuid('patient_id').notNull(),
+  surgeonId: uuid('surgeon_id'),
+  coordinatorId: uuid('coordinator_id'),
+  procedureCode: varchar('procedure_code', { length: 32 }),
+  procedureDescription: text('procedure_description'),
+  status: varchar('status', { length: 32 }).notNull().default('referral'),
+  readinessScore: integer('readiness_score'),
+  surgeryDate: timestamp('surgery_date', { withTimezone: true, mode: 'date' }),
+  clearedAt: timestamp('cleared_at', { withTimezone: true, mode: 'date' }),
+});
+
 // ----- agents + agent_prompts (read-only for the worker) -------------
 
 export const agents = pgTable(
