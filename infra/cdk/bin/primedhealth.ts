@@ -17,6 +17,7 @@ import { DataStack } from '../lib/data-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
 import { ApiStack } from '../lib/api-stack';
+import { AgentStack } from '../lib/agent-stack';
 import { CicdStack } from '../lib/cicd-stack';
 import { PROJECT, QUALIFIER, resolveEnv, stackName } from '../lib/config';
 
@@ -76,6 +77,7 @@ const api = new ApiStack(app, stackName(typedEnv, 'api'), {
   redis: data.redis,
   redisSecurityGroup: data.redisSecurityGroup,
   uploadsBucket: data.uploadsBucket,
+  agentQueue: data.agentQueue,
   apiLogGroup: observability.apiLogGroup,
   athenaPrivateJwk: secrets.athenaPrivateJwk,
   cognitoAdmins: {
@@ -91,6 +93,22 @@ const api = new ApiStack(app, stackName(typedEnv, 'api'), {
     clientId: auth.patients.client.userPoolClientId,
   },
   description: `ECS Fargate api + ALB (${typedEnv})`,
+});
+
+// Agent worker — Phase 3 M11.
+const agent = new AgentStack(app, stackName(typedEnv, 'agents'), {
+  ...common,
+  envName: typedEnv,
+  vpc: network.vpc,
+  cmk: secrets.cmk,
+  aurora: data.aurora,
+  auroraSecurityGroup: data.auroraSecurityGroup,
+  redis: data.redis,
+  redisSecurityGroup: data.redisSecurityGroup,
+  agentQueue: data.agentQueue,
+  agentDlq: data.agentDlq,
+  apiLogGroup: observability.apiLogGroup,
+  description: `ECS Fargate agent worker (${typedEnv})`,
 });
 
 // CI/CD — GitHub Actions OIDC trust + deployer role.
@@ -114,4 +132,5 @@ Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
 // Keep lint happy — referenced implicitly through CFN outputs.
 void api;
+void agent;
 void cicd;

@@ -3,6 +3,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import { TerminusModule } from '@nestjs/terminus';
 import { AdminModule } from './admin/admin.module';
+import { AgentsModule } from './agents/agents.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { CasesModule } from './cases/cases.module';
@@ -46,6 +47,7 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     AthenaModule,
     AuditModule,
+    AgentsModule,
     HealthModule,
     AdminModule,
     CasesModule,

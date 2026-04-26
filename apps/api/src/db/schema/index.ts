@@ -21,3 +21,4 @@ export * from './tasks';
 export * from './audit-events';
 export * from './messages';
 export * from './documents';
+export * from './agents';

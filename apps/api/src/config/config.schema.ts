@@ -44,6 +44,11 @@ export const configSchema = z.object({
   // module is in use; left optional so local dev without S3 still boots.
   UPLOADS_BUCKET: z.string().optional(),
   AWS_REGION: z.string().optional(),
+
+  // SQS — agent dispatch queue (M11.3). When unset, AgentDispatcher
+  // logs its intent but doesn't publish — so dev environments without
+  // AWS still boot and case-create still works.
+  AGENT_QUEUE_URL: z.string().url().optional(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

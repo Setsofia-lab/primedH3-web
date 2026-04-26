@@ -2,9 +2,39 @@
   "name": "@primedhealth/worker",
   "version": "0.0.0",
   "private": true,
-  "description": "PrimedHealth agent runtime — LangChain + LangGraph on Bedrock. Implemented in Phase 3.",
+  "description": "PrimedHealth agent runtime — LangChain + LangGraph on Bedrock. Long-poll SQS, dispatch to agent classes, write outputs to agent_runs.",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "echo '[worker] placeholder — body lands in Phase 3' && exit 0",
-    "typecheck": "echo '[worker] no TS yet' && exit 0"
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1037.0",
+    "@aws-sdk/client-secrets-manager": "^3.900.0",
+    "@aws-sdk/client-sqs": "^3.1037.0",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@primedhealth/shared-types": "workspace:*",
+    "drizzle-orm": "^0.38.0",
+    "nestjs-pino": "^4.2.0",
+    "pg": "^8.13.1",
+    "pino": "^9.5.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   }
 }

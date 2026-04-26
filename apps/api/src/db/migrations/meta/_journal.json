@@ -50,6 +50,13 @@
       "when": 1777102000000,
       "tag": "0006_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777124000000,
+      "tag": "0007_agents",
+      "breakpoints": true
     }
   ]
 }

@@ -44,6 +44,7 @@ describe('full dev stack set', () => {
       redis: data.redis,
       redisSecurityGroup: data.redisSecurityGroup,
       uploadsBucket: data.uploadsBucket,
+      agentQueue: data.agentQueue,
       apiLogGroup: obs.apiLogGroup,
       athenaPrivateJwk: secrets.athenaPrivateJwk,
       cognitoAdmins: {
@@ -113,6 +114,7 @@ describe('full dev stack set', () => {
       redis: dataProd.redis,
       redisSecurityGroup: dataProd.redisSecurityGroup,
       uploadsBucket: dataProd.uploadsBucket,
+      agentQueue: dataProd.agentQueue,
       apiLogGroup: obsProd.apiLogGroup,
       athenaPrivateJwk: secProd.athenaPrivateJwk,
       cognitoAdmins: {

@@ -25,6 +25,7 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as sm from 'aws-cdk-lib/aws-secretsmanager';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import type { EnvName } from './config';
@@ -43,6 +44,7 @@ export interface ApiStackProps extends StackProps {
   readonly redis: elasticache.CfnReplicationGroup;
   readonly redisSecurityGroup: ec2.ISecurityGroup;
   readonly uploadsBucket: s3.IBucket;
+  readonly agentQueue: sqs.IQueue;
   readonly apiLogGroup: logs.ILogGroup;
   readonly athenaPrivateJwk: sm.ISecret;
   readonly cognitoAdmins: CognitoPoolRef;
@@ -162,6 +164,19 @@ export class ApiStack extends Stack {
         ],
       }),
     );
+    // SQS — publish agent jobs (Phase 3 M11.3). Worker reads via its
+    // own grant in AgentStack.
+    taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'PublishAgentJobs',
+        actions: [
+          'sqs:SendMessage',
+          'sqs:GetQueueAttributes',
+          'sqs:GetQueueUrl',
+        ],
+        resources: [props.agentQueue.queueArn],
+      }),
+    );
 
     // --- Task definition ---
     const taskDef = new ecs.FargateTaskDefinition(this, 'TaskDef', {
@@ -212,6 +227,7 @@ export class ApiStack extends Stack {
         REDIS_HOST: props.redis.attrPrimaryEndPointAddress,
         REDIS_PORT: props.redis.attrPrimaryEndPointPort,
         UPLOADS_BUCKET: props.uploadsBucket.bucketName,
+        AGENT_QUEUE_URL: props.agentQueue.queueUrl,
         // Cognito — the auth module verifies JWTs issued by any of these
         // three pools. Pool IDs are non-secret (they appear in every JWT's
         // `iss` claim) so env vars are fine.

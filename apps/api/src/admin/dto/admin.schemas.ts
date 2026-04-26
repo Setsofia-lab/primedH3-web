@@ -76,6 +76,36 @@ export const listMessagesQuerySchema = z.object({
 });
 export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>;
 
+// Agent runs ------------------------------------------------------
+
+export const agentKeyValues = [
+  'intake_orchestrator',
+  'risk_screening',
+  'anesthesia_clearance',
+  'referral',
+  'scheduling',
+  'patient_comms',
+  'pre_hab',
+  'documentation',
+  'task_tracker',
+  'readiness',
+] as const;
+
+export const agentRunStatusValues = [
+  'queued', 'running', 'succeeded', 'failed',
+] as const;
+
+export const listAgentRunsQuerySchema = z.object({
+  agentKey: z.enum(agentKeyValues).optional(),
+  caseId: z.string().uuid().optional(),
+  status: z.enum(agentRunStatusValues).optional(),
+  hitlStatus: z.enum(['n_a', 'pending', 'approved', 'declined']).optional(),
+  since: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type ListAgentRunsQuery = z.infer<typeof listAgentRunsQuerySchema>;
+
 // Documents -------------------------------------------------------
 
 export const documentKindValues = [
