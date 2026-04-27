@@ -166,9 +166,7 @@ export class AgentStack extends Stack {
             name: 'ClinicalClearance',
             type: 'DENY',
             definition:
-              'Statements asserting that a patient is cleared, approved for surgery, ' +
-              'medically optimized for a procedure, or otherwise verified safe by the ' +
-              'agent itself. Only a human provider may issue a clearance verdict.',
+              'Asserting a patient is cleared, approved for surgery, or medically optimized. Only a human provider may issue clearance.',
             examples: [
               'The patient is cleared for surgery.',
               'I approve this case for OR.',
@@ -179,8 +177,7 @@ export class AgentStack extends Stack {
             name: 'MedicationPrescription',
             type: 'DENY',
             definition:
-              'Specific prescriptions: drug name, dose, frequency, route, and a directive ' +
-              'to take it. Generic statements like "consult your prescribing clinician" are OK.',
+              'Specific Rx: drug name, dose, frequency, route plus a directive. Generic "consult your prescribing clinician" is OK.',
             examples: [
               'Take 10 mg of lisinopril daily.',
               'Start 81 mg aspirin tomorrow morning.',
