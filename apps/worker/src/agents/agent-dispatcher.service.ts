@@ -23,6 +23,7 @@ import { agentRuns, cases, tasks } from '../db/schema-ref';
 import { agentMessageSchema, type AgentMessage } from './agent-message.schema';
 import { type Agent, type AgentRunResult } from './agent.interface';
 import { AnesthesiaClearanceAgent } from './anesthesia-clearance.agent';
+import { DocumentationAgent } from './documentation.agent';
 import { IntakeOrchestratorAgent } from './intake-orchestrator.agent';
 import { PatientCommsAgent } from './patient-comms.agent';
 import { PreHabAgent } from './pre-hab.agent';
@@ -31,6 +32,7 @@ import { ReadinessAgent } from './readiness.agent';
 import { ReferralAgent } from './referral.agent';
 import { RiskScreeningAgent } from './risk-screening.agent';
 import { SchedulingAgent } from './scheduling.agent';
+import { TaskTrackerAgent } from './task-tracker.agent';
 
 @Injectable()
 export class AgentDispatcherService {
@@ -46,6 +48,8 @@ export class AgentDispatcherService {
     private readonly referral: ReferralAgent,
     private readonly patientComms: PatientCommsAgent,
     private readonly preHab: PreHabAgent,
+    private readonly documentation: DocumentationAgent,
+    private readonly taskTracker: TaskTrackerAgent,
     private readonly readiness: ReadinessAgent,
     private readonly prompts: PromptRegistryService,
   ) {
@@ -57,6 +61,8 @@ export class AgentDispatcherService {
       [referral.id]: referral,
       [patientComms.id]: patientComms,
       [preHab.id]: preHab,
+      [documentation.id]: documentation,
+      [taskTracker.id]: taskTracker,
       [readiness.id]: readiness,
     };
   }

@@ -22,6 +22,8 @@ interface AgentTrigger {
     | 'referral'
     | 'patient_comms'
     | 'pre_hab'
+    | 'documentation'
+    | 'task_tracker'
     | 'readiness';
   label: string;
   hint: string;
@@ -31,6 +33,8 @@ const TRIGGERS: AgentTrigger[] = [
   { key: 'scheduling', label: 'Propose slots', hint: 'SchedulingAgent — proposes 3-5 surgery dates (HITL pending).' },
   { key: 'referral', label: 'Draft referral', hint: 'ReferralAgent — drafts a specialty letter (HITL pending).' },
   { key: 'patient_comms', label: 'Draft patient reply', hint: 'PatientCommsAgent — drafts a reply to a patient message.' },
+  { key: 'documentation', label: 'Draft H&P / op-note', hint: 'DocumentationAgent — drafts a clinical document for surgeon sign-off.' },
+  { key: 'task_tracker', label: 'Re-bucket tasks', hint: 'TaskTrackerAgent — re-organizes the case task list with handoff suggestions.' },
   { key: 'pre_hab', label: 'Re-run pre-hab', hint: 'PreHabAgent — drafts the regimen + adherence check-ins.' },
   { key: 'risk_screening', label: 'Re-run risk screen', hint: 'NSQIP-style screen; always pending HITL.' },
   { key: 'anesthesia_clearance', label: 'Re-run anesthesia', hint: 'ASA / RCRI / STOP-BANG draft (HITL pending).' },

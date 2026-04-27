@@ -4,6 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AgentsModule } from './agents/agents.module';
 import { BedrockModule } from './bedrock/bedrock.module';
 import { DbModule } from './db/db.module';
+import { McpModule } from './mcp/mcp.module';
 import { SqsModule } from './sqs/sqs.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { SqsModule } from './sqs/sqs.module';
     }),
     DbModule,
     BedrockModule,
+    McpModule,
     AgentsModule,
     SqsModule,
   ],
