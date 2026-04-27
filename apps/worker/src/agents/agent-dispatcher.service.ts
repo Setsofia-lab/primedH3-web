@@ -24,6 +24,8 @@ import { agentMessageSchema, type AgentMessage } from './agent-message.schema';
 import { type Agent, type AgentRunResult } from './agent.interface';
 import { AnesthesiaClearanceAgent } from './anesthesia-clearance.agent';
 import { IntakeOrchestratorAgent } from './intake-orchestrator.agent';
+import { PatientCommsAgent } from './patient-comms.agent';
+import { PreHabAgent } from './pre-hab.agent';
 import { PromptRegistryService } from './prompt-registry.service';
 import { ReadinessAgent } from './readiness.agent';
 import { ReferralAgent } from './referral.agent';
@@ -42,6 +44,8 @@ export class AgentDispatcherService {
     private readonly anesthesia: AnesthesiaClearanceAgent,
     private readonly scheduling: SchedulingAgent,
     private readonly referral: ReferralAgent,
+    private readonly patientComms: PatientCommsAgent,
+    private readonly preHab: PreHabAgent,
     private readonly readiness: ReadinessAgent,
     private readonly prompts: PromptRegistryService,
   ) {
@@ -51,6 +55,8 @@ export class AgentDispatcherService {
       [anesthesia.id]: anesthesia,
       [scheduling.id]: scheduling,
       [referral.id]: referral,
+      [patientComms.id]: patientComms,
+      [preHab.id]: preHab,
       [readiness.id]: readiness,
     };
   }

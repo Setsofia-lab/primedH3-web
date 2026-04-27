@@ -11,6 +11,7 @@
  */
 import * as path from 'node:path';
 import { CfnOutput, Duration, Stack, type StackProps } from 'aws-cdk-lib';
+import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
@@ -130,6 +131,87 @@ export class AgentStack extends Stack {
       }),
     );
 
+    // ----- Bedrock Guardrails (M14.3) -----
+    //
+    // Topic + content + sensitive-info filters applied on every
+    // InvokeModel. The guardrail is a published version (DRAFT can
+    // change underneath us); we publish v1 here and bump on every
+    // policy change. The worker reads BEDROCK_GUARDRAIL_ID +
+    // BEDROCK_GUARDRAIL_VERSION env vars and skips guardrails when
+    // either is empty (so dev runs without Bedrock model access still
+    // work via the stub path).
+    const guardrail = new bedrock.CfnGuardrail(this, 'AgentGuardrail', {
+      name: `primedhealth-${props.envName}-agents`,
+      description:
+        'PrimedHealth agent runtime guardrail — denies clearance / Rx topics, ' +
+        'content filters on hate/sexual/violence, PII redaction.',
+      blockedInputMessaging:
+        'This input is blocked by PrimedHealth policy. Please rephrase or contact your care team.',
+      blockedOutputsMessaging:
+        'This response is blocked by PrimedHealth policy. The care team has been notified.',
+      contentPolicyConfig: {
+        filtersConfig: [
+          { type: 'SEXUAL', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+          { type: 'VIOLENCE', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+          { type: 'HATE', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+          { type: 'INSULTS', inputStrength: 'MEDIUM', outputStrength: 'MEDIUM' },
+          { type: 'MISCONDUCT', inputStrength: 'HIGH', outputStrength: 'HIGH' },
+          // PROMPT_ATTACK can only target inputs.
+          { type: 'PROMPT_ATTACK', inputStrength: 'HIGH', outputStrength: 'NONE' },
+        ],
+      },
+      topicPolicyConfig: {
+        topicsConfig: [
+          {
+            name: 'ClinicalClearance',
+            type: 'DENY',
+            definition:
+              'Statements asserting that a patient is cleared, approved for surgery, ' +
+              'medically optimized for a procedure, or otherwise verified safe by the ' +
+              'agent itself. Only a human provider may issue a clearance verdict.',
+            examples: [
+              'The patient is cleared for surgery.',
+              'I approve this case for OR.',
+              'The patient is medically optimized and ready to proceed.',
+            ],
+          },
+          {
+            name: 'MedicationPrescription',
+            type: 'DENY',
+            definition:
+              'Specific prescriptions: drug name, dose, frequency, route, and a directive ' +
+              'to take it. Generic statements like "consult your prescribing clinician" are OK.',
+            examples: [
+              'Take 10 mg of lisinopril daily.',
+              'Start 81 mg aspirin tomorrow morning.',
+              'Discontinue your beta blocker on the day of surgery.',
+            ],
+          },
+        ],
+      },
+      sensitiveInformationPolicyConfig: {
+        piiEntitiesConfig: [
+          { type: 'CREDIT_DEBIT_CARD_NUMBER', action: 'BLOCK' },
+          { type: 'US_SOCIAL_SECURITY_NUMBER', action: 'ANONYMIZE' },
+          { type: 'US_BANK_ACCOUNT_NUMBER', action: 'BLOCK' },
+          { type: 'PASSWORD', action: 'BLOCK' },
+        ],
+      },
+    });
+
+    const guardrailVersion = new bedrock.CfnGuardrailVersion(this, 'AgentGuardrailV1', {
+      guardrailIdentifier: guardrail.attrGuardrailId,
+      description: 'v1 — initial publish (M14.3)',
+    });
+
+    taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'ApplyAgentGuardrail',
+        actions: ['bedrock:ApplyGuardrail', 'bedrock:GetGuardrail'],
+        resources: [guardrail.attrGuardrailArn],
+      }),
+    );
+
     // Security group: outbound only.
     const workerSg = new ec2.SecurityGroup(this, 'WorkerSg', {
       vpc: props.vpc,
@@ -181,6 +263,8 @@ export class AgentStack extends Stack {
         // model access in the AWS console (one-time per account).
         // Flip to 0 in prod once access is granted.
         AWS_BEDROCK_DISABLED: isProd ? '0' : '1',
+        BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
+        BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
       },
       // Suppress the container-level health check: distroless has no
       // shell, and the worker has no HTTP listener anyway. Liveness is

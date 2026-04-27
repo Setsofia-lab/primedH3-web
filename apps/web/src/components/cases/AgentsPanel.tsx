@@ -20,6 +20,8 @@ interface AgentTrigger {
     | 'anesthesia_clearance'
     | 'scheduling'
     | 'referral'
+    | 'patient_comms'
+    | 'pre_hab'
     | 'readiness';
   label: string;
   hint: string;
@@ -28,6 +30,8 @@ interface AgentTrigger {
 const TRIGGERS: AgentTrigger[] = [
   { key: 'scheduling', label: 'Propose slots', hint: 'SchedulingAgent — proposes 3-5 surgery dates (HITL pending).' },
   { key: 'referral', label: 'Draft referral', hint: 'ReferralAgent — drafts a specialty letter (HITL pending).' },
+  { key: 'patient_comms', label: 'Draft patient reply', hint: 'PatientCommsAgent — drafts a reply to a patient message.' },
+  { key: 'pre_hab', label: 'Re-run pre-hab', hint: 'PreHabAgent — drafts the regimen + adherence check-ins.' },
   { key: 'risk_screening', label: 'Re-run risk screen', hint: 'NSQIP-style screen; always pending HITL.' },
   { key: 'anesthesia_clearance', label: 'Re-run anesthesia', hint: 'ASA / RCRI / STOP-BANG draft (HITL pending).' },
   { key: 'readiness', label: 'Recompute readiness', hint: 'Re-aggregates the 0-100 score.' },

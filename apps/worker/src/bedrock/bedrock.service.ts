@@ -57,6 +57,8 @@ export class BedrockService {
   private readonly logger = new Logger(BedrockService.name);
   private readonly client: BedrockRuntimeClient;
   private readonly forceStub: boolean;
+  private readonly guardrailId: string | null;
+  private readonly guardrailVersion: string | null;
 
   constructor(private readonly config: ConfigService) {
     const region =
@@ -67,6 +69,13 @@ export class BedrockService {
     this.forceStub = this.config.get<string>('AWS_BEDROCK_DISABLED') === '1';
     if (this.forceStub) {
       this.logger.warn('Bedrock disabled via AWS_BEDROCK_DISABLED=1 — using stub responses');
+    }
+    this.guardrailId = this.config.get<string>('BEDROCK_GUARDRAIL_ID') ?? null;
+    this.guardrailVersion = this.config.get<string>('BEDROCK_GUARDRAIL_VERSION') ?? null;
+    if (this.guardrailId && this.guardrailVersion) {
+      this.logger.log(
+        `Bedrock Guardrails enabled (id=${this.guardrailId}, version=${this.guardrailVersion})`,
+      );
     }
   }
 
@@ -85,22 +94,40 @@ export class BedrockService {
           content: [{ type: 'text', text: m.content }],
         })),
       };
+      // Guardrails apply only when both id + version are set; the
+      // model role must hold bedrock:ApplyGuardrail (granted in
+      // AgentStack). On a guardrail block, Bedrock still responds 200
+      // but `decoded.amazon-bedrock-guardrailAction` will be 'INTERVENED'
+      // and the model output is replaced with the guardrail's
+      // configured `blockedOutputsMessaging`.
       const out = await this.client.send(
         new InvokeModelCommand({
           modelId: req.model,
           body: JSON.stringify(body),
           contentType: 'application/json',
           accept: 'application/json',
+          ...(this.guardrailId && this.guardrailVersion
+            ? {
+                guardrailIdentifier: this.guardrailId,
+                guardrailVersion: this.guardrailVersion,
+              }
+            : {}),
         }),
       );
       const decoded = JSON.parse(Buffer.from(out.body).toString('utf8')) as {
         content: { type: string; text: string }[];
         usage: { input_tokens: number; output_tokens: number };
+        'amazon-bedrock-guardrailAction'?: string;
       };
       const text = decoded.content
         .filter((c) => c.type === 'text')
         .map((c) => c.text)
         .join('');
+      if (decoded['amazon-bedrock-guardrailAction'] === 'INTERVENED') {
+        this.logger.warn(
+          `Bedrock Guardrails intervened on ${req.model}; output replaced with safe message.`,
+        );
+      }
       const promptTokens = decoded.usage.input_tokens;
       const completionTokens = decoded.usage.output_tokens;
       const costUsdMicros = priceMicros(req.model, promptTokens, completionTokens);
