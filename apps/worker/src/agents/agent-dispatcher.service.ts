@@ -22,10 +22,13 @@ import { applyHardStops } from '../policies/hard-stops';
 import { agentRuns, cases, tasks } from '../db/schema-ref';
 import { agentMessageSchema, type AgentMessage } from './agent-message.schema';
 import { type Agent, type AgentRunResult } from './agent.interface';
+import { AnesthesiaClearanceAgent } from './anesthesia-clearance.agent';
 import { IntakeOrchestratorAgent } from './intake-orchestrator.agent';
 import { PromptRegistryService } from './prompt-registry.service';
 import { ReadinessAgent } from './readiness.agent';
+import { ReferralAgent } from './referral.agent';
 import { RiskScreeningAgent } from './risk-screening.agent';
+import { SchedulingAgent } from './scheduling.agent';
 
 @Injectable()
 export class AgentDispatcherService {
@@ -36,12 +39,18 @@ export class AgentDispatcherService {
     @Inject(DB_CLIENT) private readonly db: WorkerDb,
     private readonly intake: IntakeOrchestratorAgent,
     private readonly risk: RiskScreeningAgent,
+    private readonly anesthesia: AnesthesiaClearanceAgent,
+    private readonly scheduling: SchedulingAgent,
+    private readonly referral: ReferralAgent,
     private readonly readiness: ReadinessAgent,
     private readonly prompts: PromptRegistryService,
   ) {
     this.registry = {
       [intake.id]: intake,
       [risk.id]: risk,
+      [anesthesia.id]: anesthesia,
+      [scheduling.id]: scheduling,
+      [referral.id]: referral,
       [readiness.id]: readiness,
     };
   }

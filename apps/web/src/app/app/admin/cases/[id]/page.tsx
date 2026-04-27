@@ -10,6 +10,7 @@
  */
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
+import { AgentsPanel } from '@/components/cases/AgentsPanel';
 import { AppShell } from '@/components/shell/AppShell';
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel';
 import { MessagesPanel } from '@/components/messages/MessagesPanel';
@@ -255,6 +256,8 @@ export default function AdminCaseDetailPage({ params }: { params: Promise<{ id: 
           <MessagesPanel caseId={c.id} />
 
           <DocumentsPanel caseId={c.id} />
+
+          <AgentsPanel caseId={c.id} />
 
           <div className="card" style={{ padding: '1.25rem' }}>
             <div className="card-head" style={{ marginBottom: '0.5rem' }}><h3>Edit</h3></div>

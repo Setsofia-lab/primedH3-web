@@ -23,6 +23,7 @@ import type { Case } from '../db/schema';
 const ON_CREATE_AGENTS: readonly AgentKey[] = [
   'intake_orchestrator',
   'risk_screening',
+  'anesthesia_clearance',
   'readiness',
 ];
 

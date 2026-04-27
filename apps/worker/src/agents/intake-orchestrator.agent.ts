@@ -27,6 +27,7 @@ import {
   type ModelId,
 } from './agent.interface';
 import { BedrockService } from '../bedrock/bedrock.service';
+import { parseModelJson } from './parse-model-json';
 
 const ASSIGNEE_ROLES = [
   'admin',
@@ -209,21 +210,3 @@ export class IntakeOrchestratorAgent implements Agent {
   }
 }
 
-function parseModelJson(text: string): unknown {
-  // Models often wrap JSON in code fences or chat preambles. Strip both.
-  const trimmed = text.trim();
-  const fence = /```(?:json)?\s*([\s\S]+?)\s*```/m.exec(trimmed);
-  const raw = fence ? fence[1] : trimmed;
-  try {
-    return JSON.parse(raw ?? '');
-  } catch {
-    // Last resort: find the first {...} block.
-    const m = /\{[\s\S]+\}/.exec(raw ?? '');
-    if (!m) return null;
-    try {
-      return JSON.parse(m[0]);
-    } catch {
-      return null;
-    }
-  }
-}

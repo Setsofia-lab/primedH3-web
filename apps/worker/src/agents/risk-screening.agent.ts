@@ -27,6 +27,7 @@ import {
   type ModelId,
 } from './agent.interface';
 import { BedrockService } from '../bedrock/bedrock.service';
+import { parseModelJson } from './parse-model-json';
 
 const RISK_CATEGORIES = [
   'cardiac',
@@ -233,19 +234,3 @@ export class RiskScreeningAgent implements Agent {
   }
 }
 
-function parseModelJson(text: string): unknown {
-  const trimmed = text.trim();
-  const fence = /```(?:json)?\s*([\s\S]+?)\s*```/m.exec(trimmed);
-  const raw = fence ? fence[1] : trimmed;
-  try {
-    return JSON.parse(raw ?? '');
-  } catch {
-    const m = /\{[\s\S]+\}/.exec(raw ?? '');
-    if (!m) return null;
-    try {
-      return JSON.parse(m[0]);
-    } catch {
-      return null;
-    }
-  }
-}

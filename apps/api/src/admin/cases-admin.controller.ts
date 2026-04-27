@@ -29,15 +29,18 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { CurrentUserRow } from '../auth/current-user-row.decorator';
 import { Roles } from '../auth/roles.decorator';
 import type { AuthContext } from '../auth/auth-context';
+import { AgentDispatcherService } from '../agents/agent-dispatcher.service';
 import { IntakeOrchestratorService } from '../cases/intake-orchestrator.service';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
 import { cases, type Case, type User } from '../db/schema';
 import { meta } from './audit-meta';
 import {
   createCaseSchema,
+  dispatchAgentSchema,
   listCasesQuerySchema,
   updateCaseSchema,
   type CreateCaseInput,
+  type DispatchAgentInput,
   type ListCasesQuery,
   type UpdateCaseInput,
 } from './dto/admin.schemas';
@@ -53,6 +56,7 @@ export class CasesAdminController {
     @Inject(DB_CLIENT) private readonly db: PrimedDb,
     private readonly audit: AuditService,
     private readonly intake: IntakeOrchestratorService,
+    private readonly dispatcher: AgentDispatcherService,
   ) {}
 
   @Post()
@@ -183,5 +187,48 @@ export class CasesAdminController {
       meta(req),
     );
     return row;
+  }
+
+  @Post(':id/dispatch-agent')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Manually dispatch an agent run against a case (admin trigger)',
+  })
+  async dispatchAgent(
+    @Param('id') id: string,
+    @Body(new ZodBodyPipe(dispatchAgentSchema)) input: DispatchAgentInput,
+    @CurrentUser() ctx: AuthContext,
+    @CurrentUserRow() me: User,
+    @Req() req: FastifyRequest,
+  ): Promise<{ runId: string }> {
+    const [row] = await this.db
+      .select()
+      .from(cases)
+      .where(eq(cases.id, id))
+      .limit(1);
+    if (!row) throw new NotFoundException(`case ${id} not found`);
+
+    const result = await this.dispatcher.dispatch({
+      agentKey: input.agentKey,
+      triggerEvent: 'admin.manual',
+      caseRow: row,
+      procedureCode: row.procedureCode,
+      procedureDescription: row.procedureDescription,
+      payload: input.payload ?? {},
+    });
+
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: 'create',
+        resourceType: 'agent_run',
+        resourceId: result.runId,
+        targetFacilityId: row.facilityId,
+        after: { agentKey: input.agentKey, caseId: id, runId: result.runId },
+      },
+      meta(req),
+    );
+
+    return result;
   }
 }

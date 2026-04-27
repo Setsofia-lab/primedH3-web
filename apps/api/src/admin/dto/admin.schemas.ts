@@ -112,6 +112,12 @@ export const modelIdValues = [
   'anthropic.claude-haiku-4-5',
 ] as const;
 
+export const dispatchAgentSchema = z.object({
+  agentKey: z.enum(agentKeyValues),
+  payload: z.record(z.string(), z.unknown()).optional(),
+});
+export type DispatchAgentInput = z.infer<typeof dispatchAgentSchema>;
+
 /**
  * New prompt version body. Versions auto-increment per-agent so the
  * client never sets `version`. The created row is inactive by default;

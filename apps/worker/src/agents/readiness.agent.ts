@@ -23,6 +23,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import { DB_CLIENT, type WorkerDb } from '../db/db.module';
 import { agentRuns, tasks } from '../db/schema-ref';
 import { BedrockService } from '../bedrock/bedrock.service';
+import { parseModelJson } from './parse-model-json';
 import {
   type Agent,
   type AgentInput,
@@ -246,22 +247,5 @@ export class ReadinessAgent implements Agent {
     if (row.hitlStatus === 'approved') return 'approved';
     if (row.hitlStatus === 'declined') return 'declined';
     return 'pending';
-  }
-}
-
-function parseModelJson(text: string): unknown {
-  const trimmed = text.trim();
-  const fence = /```(?:json)?\s*([\s\S]+?)\s*```/m.exec(trimmed);
-  const raw = fence ? fence[1] : trimmed;
-  try {
-    return JSON.parse(raw ?? '');
-  } catch {
-    const m = /\{[\s\S]+\}/.exec(raw ?? '');
-    if (!m) return null;
-    try {
-      return JSON.parse(m[0]);
-    } catch {
-      return null;
-    }
   }
 }
