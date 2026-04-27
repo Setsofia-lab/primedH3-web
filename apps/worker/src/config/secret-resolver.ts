@@ -72,5 +72,32 @@ export async function resolveRuntimeSecrets(): Promise<void> {
     steps.push({ name: 'redis', ms: 0, status: 'skipped' });
   }
 
+  // LangSmith API key — optional. When LANGSMITH_API_KEY_ARN is set,
+  // pull the raw secret string into LANGSMITH_API_KEY. The tracer is a
+  // no-op if neither is present after this resolver runs.
+  if (!process.env.LANGSMITH_API_KEY && process.env.LANGSMITH_API_KEY_ARN) {
+    const started = Date.now();
+    try {
+      const raw = await fetchSecret(process.env.LANGSMITH_API_KEY_ARN);
+      // Stored as either a raw key string or a {key:"..."} JSON object.
+      let key = raw.trim();
+      try {
+        const parsed = JSON.parse(raw) as { key?: string; api_key?: string };
+        key = parsed.key ?? parsed.api_key ?? key;
+      } catch {
+        // not JSON — use the raw string
+      }
+      if (key) process.env.LANGSMITH_API_KEY = key;
+      steps.push({ name: 'langsmith', ms: Date.now() - started, status: 'ok' });
+    } catch (err) {
+      steps.push({ name: 'langsmith', ms: Date.now() - started, status: 'error' });
+      warn('Failed to resolve LANGSMITH_API_KEY_ARN (tracing will be disabled)', {
+        error: err instanceof Error ? err.message : 'unknown',
+      });
+    }
+  } else if (process.env.LANGSMITH_API_KEY) {
+    steps.push({ name: 'langsmith', ms: 0, status: 'skipped' });
+  }
+
   log('Runtime secrets resolved', { steps });
 }

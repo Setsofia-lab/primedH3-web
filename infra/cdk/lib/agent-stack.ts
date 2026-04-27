@@ -39,6 +39,9 @@ export interface AgentStackProps extends StackProps {
   /** Re-use the api log group so /aws/ecs/<env>/api streams contain
    *  both api and worker — easier to grep correlation ids across. */
   readonly apiLogGroup: logs.ILogGroup;
+  /** Optional — when set, the worker's secret-resolver pulls the value
+   *  into LANGSMITH_API_KEY at boot. Tracing is a no-op without it. */
+  readonly langsmithApiKey?: sm.ISecret;
 }
 
 export class AgentStack extends Stack {
@@ -102,6 +105,15 @@ export class AgentStack extends Stack {
         resources: props.aurora.secret ? [props.aurora.secret.secretArn] : [],
       }),
     );
+    if (props.langsmithApiKey) {
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          sid: 'ReadLangSmithKey',
+          actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+          resources: [props.langsmithApiKey.secretArn],
+        }),
+      );
+    }
     // SQS — receive + delete on the agent queue (worker reads). The
     // api side gets a separate grant on the queue from ApiStack.
     taskRole.addToPolicy(
@@ -262,6 +274,9 @@ export class AgentStack extends Stack {
         AWS_BEDROCK_DISABLED: isProd ? '0' : '1',
         BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
         BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
+        // LangSmith — empty arn = tracing disabled (graceful no-op).
+        LANGSMITH_API_KEY_ARN: props.langsmithApiKey?.secretArn ?? '',
+        LANGSMITH_PROJECT: `primedhealth-${props.envName}`,
       },
       // Suppress the container-level health check: distroless has no
       // shell, and the worker has no HTTP listener anyway. Liveness is

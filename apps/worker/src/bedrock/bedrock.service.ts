@@ -21,8 +21,23 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from '@aws-sdk/client-bedrock-runtime';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 import type { ModelId } from '../agents/agent.interface';
+import { LangSmithTracer } from '../observability/langsmith-tracer';
+
+/**
+ * Run-context for tracing. The dispatcher calls
+ * `BedrockService.runInAgentContext({ agentId, runId }, () => agent.run(...))`
+ * and BedrockService.messages picks the context up via ALS without
+ * every agent having to thread `trace` through its signature.
+ */
+interface AgentRunContext {
+  readonly agentId: string;
+  readonly runId: string;
+}
+
+const agentRunCtx = new AsyncLocalStorage<AgentRunContext>();
 
 interface MessagesRequest {
   readonly model: ModelId;
@@ -60,7 +75,10 @@ export class BedrockService {
   private readonly guardrailId: string | null;
   private readonly guardrailVersion: string | null;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly tracer: LangSmithTracer,
+  ) {
     const region =
       this.config.get<string>('AWS_REGION') ??
       this.config.get<string>('BEDROCK_REGION') ??
@@ -79,70 +97,132 @@ export class BedrockService {
     }
   }
 
+  /**
+   * Wrap an agent.run() call so messages() emitted inside it are
+   * traced back to the run row. Pure pass-through when there's no
+   * tracer — the ALS overhead is negligible.
+   */
+  runInAgentContext<T>(ctx: AgentRunContext, fn: () => Promise<T>): Promise<T> {
+    return agentRunCtx.run(ctx, fn);
+  }
+
   async messages(req: MessagesRequest): Promise<MessagesResponse> {
-    if (this.forceStub) {
-      return this.stub(req, 'forced');
+    const startedAt = Date.now();
+    const trace = agentRunCtx.getStore() ?? null;
+    const userMessageBlob = JSON.stringify(req.messages);
+    const exec = async (): Promise<MessagesResponse & { latencyMs: number }> => {
+      if (this.forceStub) {
+        const stubResp = this.stub(req, 'forced');
+        return { ...stubResp, latencyMs: Date.now() - startedAt };
+      }
+      try {
+        const body = {
+          anthropic_version: 'bedrock-2023-05-31',
+          max_tokens: req.maxTokens ?? 1024,
+          temperature: req.temperature,
+          system: req.system,
+          messages: req.messages.map((m) => ({
+            role: m.role,
+            content: [{ type: 'text', text: m.content }],
+          })),
+        };
+        // Guardrails apply only when both id + version are set; the
+        // model role must hold bedrock:ApplyGuardrail (granted in
+        // AgentStack). On a guardrail block, Bedrock still responds 200
+        // but `decoded.amazon-bedrock-guardrailAction` will be 'INTERVENED'
+        // and the model output is replaced with the guardrail's
+        // configured `blockedOutputsMessaging`.
+        const out = await this.client.send(
+          new InvokeModelCommand({
+            modelId: req.model,
+            body: JSON.stringify(body),
+            contentType: 'application/json',
+            accept: 'application/json',
+            ...(this.guardrailId && this.guardrailVersion
+              ? {
+                  guardrailIdentifier: this.guardrailId,
+                  guardrailVersion: this.guardrailVersion,
+                }
+              : {}),
+          }),
+        );
+        const decoded = JSON.parse(Buffer.from(out.body).toString('utf8')) as {
+          content: { type: string; text: string }[];
+          usage: { input_tokens: number; output_tokens: number };
+          'amazon-bedrock-guardrailAction'?: string;
+        };
+        const text = decoded.content
+          .filter((c) => c.type === 'text')
+          .map((c) => c.text)
+          .join('');
+        if (decoded['amazon-bedrock-guardrailAction'] === 'INTERVENED') {
+          this.logger.warn(
+            `Bedrock Guardrails intervened on ${req.model}; output replaced with safe message.`,
+          );
+        }
+        const promptTokens = decoded.usage.input_tokens;
+        const completionTokens = decoded.usage.output_tokens;
+        const costUsdMicros = priceMicros(req.model, promptTokens, completionTokens);
+        return {
+          text,
+          promptTokens,
+          completionTokens,
+          costUsdMicros,
+          stub: false,
+          latencyMs: Date.now() - startedAt,
+        };
+      } catch (err) {
+        const e = err as { name?: string; message?: string };
+        if (e.name === 'AccessDeniedException' || e.name === 'ResourceNotFoundException') {
+          this.logger.warn(
+            `Bedrock model ${req.model} not accessible (${e.name}) — falling back to stub. ` +
+              `Enable model access in the AWS console (Bedrock → Model access).`,
+          );
+          const stubResp = this.stub(req, e.name);
+          return { ...stubResp, latencyMs: Date.now() - startedAt };
+        }
+        throw err;
+      }
+    };
+
+    if (!trace) {
+      const r = await exec();
+      return {
+        text: r.text,
+        promptTokens: r.promptTokens,
+        completionTokens: r.completionTokens,
+        costUsdMicros: r.costUsdMicros,
+        stub: r.stub,
+      };
     }
-    try {
-      const body = {
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: req.maxTokens ?? 1024,
-        temperature: req.temperature,
+
+    const traced = await this.tracer.trace(
+      {
+        runId: trace.runId,
+        agentId: trace.agentId,
+        model: req.model,
         system: req.system,
-        messages: req.messages.map((m) => ({
-          role: m.role,
-          content: [{ type: 'text', text: m.content }],
-        })),
-      };
-      // Guardrails apply only when both id + version are set; the
-      // model role must hold bedrock:ApplyGuardrail (granted in
-      // AgentStack). On a guardrail block, Bedrock still responds 200
-      // but `decoded.amazon-bedrock-guardrailAction` will be 'INTERVENED'
-      // and the model output is replaced with the guardrail's
-      // configured `blockedOutputsMessaging`.
-      const out = await this.client.send(
-        new InvokeModelCommand({
-          modelId: req.model,
-          body: JSON.stringify(body),
-          contentType: 'application/json',
-          accept: 'application/json',
-          ...(this.guardrailId && this.guardrailVersion
-            ? {
-                guardrailIdentifier: this.guardrailId,
-                guardrailVersion: this.guardrailVersion,
-              }
-            : {}),
-        }),
-      );
-      const decoded = JSON.parse(Buffer.from(out.body).toString('utf8')) as {
-        content: { type: string; text: string }[];
-        usage: { input_tokens: number; output_tokens: number };
-        'amazon-bedrock-guardrailAction'?: string;
-      };
-      const text = decoded.content
-        .filter((c) => c.type === 'text')
-        .map((c) => c.text)
-        .join('');
-      if (decoded['amazon-bedrock-guardrailAction'] === 'INTERVENED') {
-        this.logger.warn(
-          `Bedrock Guardrails intervened on ${req.model}; output replaced with safe message.`,
-        );
-      }
-      const promptTokens = decoded.usage.input_tokens;
-      const completionTokens = decoded.usage.output_tokens;
-      const costUsdMicros = priceMicros(req.model, promptTokens, completionTokens);
-      return { text, promptTokens, completionTokens, costUsdMicros, stub: false };
-    } catch (err) {
-      const e = err as { name?: string; message?: string };
-      if (e.name === 'AccessDeniedException' || e.name === 'ResourceNotFoundException') {
-        this.logger.warn(
-          `Bedrock model ${req.model} not accessible (${e.name}) — falling back to stub. ` +
-            `Enable model access in the AWS console (Bedrock → Model access).`,
-        );
-        return this.stub(req, e.name);
-      }
-      throw err;
-    }
+        userMessage: userMessageBlob,
+      },
+      async () => {
+        const r = await exec();
+        return {
+          text: r.text,
+          promptTokens: r.promptTokens,
+          completionTokens: r.completionTokens,
+          costUsdMicros: r.costUsdMicros,
+          stub: r.stub,
+          latencyMs: r.latencyMs,
+        };
+      },
+    );
+    return {
+      text: traced.text,
+      promptTokens: traced.promptTokens,
+      completionTokens: traced.completionTokens,
+      costUsdMicros: traced.costUsdMicros,
+      stub: traced.stub,
+    };
   }
 
   private stub(req: MessagesRequest, reason: string): MessagesResponse {

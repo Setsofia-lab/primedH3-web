@@ -17,6 +17,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
+import { BedrockService } from '../bedrock/bedrock.service';
 import { DB_CLIENT, type WorkerDb } from '../db/db.module';
 import { applyHardStops } from '../policies/hard-stops';
 import { agentRuns, cases, tasks } from '../db/schema-ref';
@@ -41,6 +42,7 @@ export class AgentDispatcherService {
 
   constructor(
     @Inject(DB_CLIENT) private readonly db: WorkerDb,
+    private readonly bedrock: BedrockService,
     private readonly intake: IntakeOrchestratorAgent,
     private readonly risk: RiskScreeningAgent,
     private readonly anesthesia: AnesthesiaClearanceAgent,
@@ -101,23 +103,30 @@ export class AgentDispatcherService {
     const startedAt = Date.now();
     let result: AgentRunResult;
     try {
-      result = await agent.run(
-        { triggerEvent: parsed.triggerEvent, payload: parsed.payload },
-        {
-          caseId: parsed.context.caseId,
-          facilityId: parsed.context.facilityId,
-          patientId: parsed.context.patientId,
-          procedureCode: parsed.context.procedureCode ?? undefined,
-          procedureDescription: parsed.context.procedureDescription ?? undefined,
-          surgeonId: parsed.context.surgeonId ?? null,
-        },
-        activePrompt
-          ? {
-              systemPrompt: activePrompt.systemPrompt,
-              model: activePrompt.model,
-              temperature: activePrompt.temperature,
-            }
-          : undefined,
+      // Wrap the entire agent.run() so any Bedrock call inside it
+      // inherits the run id + agent id via AsyncLocalStorage and
+      // shows up correlated in LangSmith.
+      result = await this.bedrock.runInAgentContext(
+        { agentId: parsed.agentId, runId: parsed.runId },
+        () =>
+          agent.run(
+            { triggerEvent: parsed.triggerEvent, payload: parsed.payload },
+            {
+              caseId: parsed.context.caseId,
+              facilityId: parsed.context.facilityId,
+              patientId: parsed.context.patientId,
+              procedureCode: parsed.context.procedureCode ?? undefined,
+              procedureDescription: parsed.context.procedureDescription ?? undefined,
+              surgeonId: parsed.context.surgeonId ?? null,
+            },
+            activePrompt
+              ? {
+                  systemPrompt: activePrompt.systemPrompt,
+                  model: activePrompt.model,
+                  temperature: activePrompt.temperature,
+                }
+              : undefined,
+          ),
       );
     } catch (err) {
       const message = (err as Error).message;

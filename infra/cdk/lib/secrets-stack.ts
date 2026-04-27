@@ -25,6 +25,7 @@ export interface SecretsStackProps extends StackProps {
 export class SecretsStack extends Stack {
   public readonly cmk: kms.Key;
   public readonly athenaPrivateJwk: sm.Secret;
+  public readonly langsmithApiKey: sm.Secret;
 
   constructor(scope: Construct, id: string, props: SecretsStackProps) {
     super(scope, id, props);
@@ -56,6 +57,29 @@ export class SecretsStack extends Stack {
         id: 'AwsSolutions-SMG4',
         reason:
           'Athena client-assertion JWK is externally-registered; rotation is a manual keypair regeneration + Athena app update, not automatable.',
+      },
+    ]);
+
+    // LangSmith API key (M16). Externally-issued by smith.langchain.com;
+    // populate manually after stack creation:
+    //   aws secretsmanager put-secret-value \
+    //     --secret-id /primedhealth/<env>/langsmith/api-key \
+    //     --secret-string 'lsv2_pt_...'
+    // The worker reads it via the secret-resolver; the tracer is a
+    // no-op when the secret is empty, so the worker is fine to run
+    // before the key is set.
+    this.langsmithApiKey = new sm.Secret(this, 'LangSmithApiKey', {
+      secretName: `/primedhealth/${props.envName}/langsmith/api-key`,
+      description: `LangSmith API key (${props.envName}). Populate via put-secret-value once the workspace is provisioned.`,
+      encryptionKey: this.cmk,
+      removalPolicy: props.envName === 'prod' ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+    });
+
+    NagSuppressions.addResourceSuppressions(this.langsmithApiKey, [
+      {
+        id: 'AwsSolutions-SMG4',
+        reason:
+          'LangSmith key is externally-issued by smith.langchain.com; rotation is a manual key regeneration in the LangSmith console, not automatable.',
       },
     ]);
   }

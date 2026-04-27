@@ -5,6 +5,7 @@ import { AgentsModule } from './agents/agents.module';
 import { BedrockModule } from './bedrock/bedrock.module';
 import { DbModule } from './db/db.module';
 import { McpModule } from './mcp/mcp.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { SqsModule } from './sqs/sqs.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { SqsModule } from './sqs/sqs.module';
             : undefined,
       },
     }),
+    ObservabilityModule,
     DbModule,
     BedrockModule,
     McpModule,

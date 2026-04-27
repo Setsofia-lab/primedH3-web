@@ -10,9 +10,10 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
-    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:unit": "vitest run --passWithNoTests"
+    "test:unit": "vitest run --passWithNoTests",
+    "eval": "tsx src/eval/eval-runner.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1037.0",
@@ -23,6 +24,7 @@
     "@nestjs/core": "^11.0.0",
     "@primedhealth/shared-types": "workspace:*",
     "drizzle-orm": "^0.38.0",
+    "langsmith": "^0.5.25",
     "nestjs-pino": "^4.2.0",
     "pg": "^8.13.1",
     "pino": "^9.5.0",

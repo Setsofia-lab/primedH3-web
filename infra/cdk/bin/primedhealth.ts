@@ -108,6 +108,7 @@ const agent = new AgentStack(app, stackName(typedEnv, 'agents'), {
   agentQueue: data.agentQueue,
   agentDlq: data.agentDlq,
   apiLogGroup: observability.apiLogGroup,
+  langsmithApiKey: secrets.langsmithApiKey,
   description: `ECS Fargate agent worker (${typedEnv})`,
 });
 
