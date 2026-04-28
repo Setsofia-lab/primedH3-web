@@ -12,11 +12,17 @@ import { Icon } from '@/components/shell/icons';
 
 interface Patient {
   id: string;
+  facilityId: string;
   firstName: string;
   lastName: string;
   dob: string;
   mrn: string | null;
   athenaResourceId: string | null;
+}
+
+interface Me {
+  id: string;
+  facilityId: string | null;
 }
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
@@ -27,6 +33,7 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
 
 export default function SurgeonNewCasePage() {
   const router = useRouter();
+  const [me, setMe] = useState<Me | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -40,10 +47,12 @@ export default function SurgeonNewCasePage() {
   useEffect(() => {
     void (async () => {
       try {
-        const r = await jsonOrThrow<{ items: Patient[] }>(
-          await fetch('/api/patients?limit=200'),
-        );
-        setPatients(r.items);
+        const [meRes, patRes] = await Promise.all([
+          jsonOrThrow<Me>(await fetch('/api/auth/me')),
+          jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
+        ]);
+        setMe(meRes);
+        setPatients(patRes.items);
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -52,17 +61,26 @@ export default function SurgeonNewCasePage() {
     })();
   }, []);
 
+  // Patients at the surgeon's own facility — backend rejects cross-facility
+  // assignments with a 403 'facility mismatch'. We filter client-side so the
+  // dropdown only shows valid choices and never surfaces a patient that
+  // would 403 on submit.
+  const facilityScopedPatients = useMemo(() => {
+    if (!me?.facilityId) return patients;
+    return patients.filter((p) => p.facilityId === me.facilityId);
+  }, [me, patients]);
+
   const filteredPatients = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return patients;
-    return patients.filter((p) =>
+    if (!q) return facilityScopedPatients;
+    return facilityScopedPatients.filter((p) =>
       [p.firstName, p.lastName, p.mrn, p.athenaResourceId, p.dob]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
         .includes(q),
     );
-  }, [search, patients]);
+  }, [search, facilityScopedPatients]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,15 +88,17 @@ export default function SurgeonNewCasePage() {
     setSubmitting(true);
     setError(null);
     try {
+      const picked = patients.find((p) => p.id === patientId);
+      if (!picked) throw new Error('Selected patient not found');
       const created = await jsonOrThrow<{ id: string; facilityId: string }>(
         await fetch('/api/cases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             patientId,
-            // facilityId is ignored for non-admins server-side, but the
-            // schema requires it. The api re-derives it from the patient.
-            facilityId: patients.find((p) => p.id === patientId)?.id, // placeholder
+            // The api re-derives facilityId from the patient row; we send
+            // the patient's own facility so the request schema validates.
+            facilityId: picked.facilityId,
             ...(code.trim() ? { procedureCode: code.trim() } : {}),
             ...(desc.trim() ? { procedureDescription: desc.trim() } : {}),
             ...(date ? { surgeryDate: new Date(date).toISOString() } : {}),
@@ -107,10 +127,11 @@ export default function SurgeonNewCasePage() {
       <div className="card" style={{ maxWidth: 720 }}>
         {loading ? (
           <div className="muted">Loading patients…</div>
-        ) : patients.length === 0 ? (
+        ) : facilityScopedPatients.length === 0 ? (
           <div className="muted">
-            No patients have been imported yet at your facility. Ask an admin
-            to hydrate one from the Athena page first.
+            No patients are mirrored at your facility yet. Ask an admin to hydrate
+            one from the Athena page, or create a demo patient under
+            /app/admin/patients.
           </div>
         ) : (
           <form onSubmit={submit} style={{ display: 'grid', gap: 14 }}>
