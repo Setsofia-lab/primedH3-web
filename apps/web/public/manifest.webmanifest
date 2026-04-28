@@ -3,7 +3,7 @@
   "short_name": "Primed",
   "description": "Your perioperative care, in one place. Pre-op tasks, messages, education, and your readiness score.",
   "start_url": "/app/patient",
-  "scope": "/app/patient",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#4B6BEF",
