@@ -73,22 +73,33 @@ export async function resolveRuntimeSecrets(): Promise<void> {
   }
 
   // LangSmith API key — optional. When LANGSMITH_API_KEY_ARN is set,
-  // pull the raw secret string into LANGSMITH_API_KEY. The tracer is a
-  // no-op if neither is present after this resolver runs.
+  // pull the raw secret string into LANGSMITH_API_KEY. We only enable
+  // tracing if the value looks like a real LangSmith key (`lsv2_*`,
+  // `ls__*`, or any non-JSON 32+ char string) — CDK's
+  // `new sm.Secret(...)` auto-generates a `{"password":"..."}` JSON
+  // placeholder, and we don't want to log noisy 401s against that.
   if (!process.env.LANGSMITH_API_KEY && process.env.LANGSMITH_API_KEY_ARN) {
     const started = Date.now();
     try {
       const raw = await fetchSecret(process.env.LANGSMITH_API_KEY_ARN);
-      // Stored as either a raw key string or a {key:"..."} JSON object.
-      let key = raw.trim();
+      const trimmed = raw.trim();
+      let key: string | null = null;
       try {
-        const parsed = JSON.parse(raw) as { key?: string; api_key?: string };
-        key = parsed.key ?? parsed.api_key ?? key;
+        const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+        const candidate = (parsed.key ?? parsed.api_key ?? parsed.LANGSMITH_API_KEY) as
+          | string
+          | undefined;
+        if (typeof candidate === 'string' && candidate.length >= 16) key = candidate;
       } catch {
-        // not JSON — use the raw string
+        // Raw string secret — accept if it looks like a real LangSmith key.
+        if (/^(lsv2_|ls__)/.test(trimmed) || trimmed.length >= 32) key = trimmed;
       }
-      if (key) process.env.LANGSMITH_API_KEY = key;
-      steps.push({ name: 'langsmith', ms: Date.now() - started, status: 'ok' });
+      if (key) {
+        process.env.LANGSMITH_API_KEY = key;
+        steps.push({ name: 'langsmith', ms: Date.now() - started, status: 'ok' });
+      } else {
+        steps.push({ name: 'langsmith', ms: Date.now() - started, status: 'skipped' });
+      }
     } catch (err) {
       steps.push({ name: 'langsmith', ms: Date.now() - started, status: 'error' });
       warn('Failed to resolve LANGSMITH_API_KEY_ARN (tracing will be disabled)', {
