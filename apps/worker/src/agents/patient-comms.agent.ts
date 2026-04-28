@@ -103,7 +103,7 @@ export class PatientCommsAgent implements Agent {
 
   readonly id = 'patient_comms' as const;
   readonly name = 'PatientCommsAgent';
-  readonly defaultModel: ModelId = 'anthropic.claude-sonnet-4-7';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-sonnet-4-6';
   readonly defaultTemperature = 0.3;
 
   constructor(private readonly bedrock: BedrockService) {}

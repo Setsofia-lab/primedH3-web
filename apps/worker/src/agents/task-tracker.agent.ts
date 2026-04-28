@@ -109,7 +109,7 @@ export class TaskTrackerAgent implements Agent {
 
   readonly id = 'task_tracker' as const;
   readonly name = 'TaskTrackerAgent';
-  readonly defaultModel: ModelId = 'anthropic.claude-haiku-4-5';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
   readonly defaultTemperature = 0.0;
 
   constructor(

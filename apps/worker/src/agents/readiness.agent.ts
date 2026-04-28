@@ -133,7 +133,7 @@ export class ReadinessAgent implements Agent {
 
   readonly id = 'readiness' as const;
   readonly name = 'ReadinessAgent';
-  readonly defaultModel: ModelId = 'anthropic.claude-sonnet-4-7';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-sonnet-4-6';
   readonly defaultTemperature = 0.1;
 
   constructor(

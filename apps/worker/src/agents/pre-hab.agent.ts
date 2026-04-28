@@ -149,7 +149,7 @@ export class PreHabAgent implements Agent {
 
   readonly id = 'pre_hab' as const;
   readonly name = 'PreHabAgent';
-  readonly defaultModel: ModelId = 'anthropic.claude-haiku-4-5';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
   readonly defaultTemperature = 0.2;
 
   constructor(private readonly bedrock: BedrockService) {}

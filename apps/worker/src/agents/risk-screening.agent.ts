@@ -155,7 +155,7 @@ export class RiskScreeningAgent implements Agent {
 
   readonly id = 'risk_screening' as const;
   readonly name = 'RiskScreeningAgent';
-  readonly defaultModel: ModelId = 'anthropic.claude-opus-4-7';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-opus-4-7';
   readonly defaultTemperature = 0.1;
 
   constructor(private readonly bedrock: BedrockService) {}

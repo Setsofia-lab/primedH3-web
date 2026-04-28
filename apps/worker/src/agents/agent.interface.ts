@@ -31,10 +31,21 @@ export type AgentId =
   | 'task_tracker'
   | 'readiness';
 
+/**
+ * Bedrock model IDs.
+ *
+ * IMPORTANT: Claude 4.x models on Bedrock require *inference profile*
+ * IDs (`us.…` or `global.…` prefix). Direct foundation-model IDs
+ * (`anthropic.claude-…`) return ValidationException for on-demand
+ * invocation. We pin to the US-region profiles for HIPAA workloads.
+ *
+ * Sonnet 4.7 doesn't exist on Bedrock as of 2026-04 — the latest
+ * Sonnet inference profile is 4.6.
+ */
 export type ModelId =
-  | 'anthropic.claude-sonnet-4-7'
-  | 'anthropic.claude-opus-4-7'
-  | 'anthropic.claude-haiku-4-5';
+  | 'us.anthropic.claude-sonnet-4-6'
+  | 'us.anthropic.claude-opus-4-7'
+  | 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 export interface AgentInput {
   /** What triggered this run (e.g. 'case.created'). */

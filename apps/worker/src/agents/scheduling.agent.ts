@@ -84,7 +84,7 @@ export class SchedulingAgent implements Agent {
 
   readonly id = 'scheduling' as const;
   readonly name = 'SchedulingAgent';
-  readonly defaultModel: ModelId = 'anthropic.claude-haiku-4-5';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
   readonly defaultTemperature = 0.0;
 
   constructor(private readonly bedrock: BedrockService) {}

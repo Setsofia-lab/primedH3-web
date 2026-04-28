@@ -165,7 +165,7 @@ export class DocumentationAgent implements Agent {
 
   readonly id = 'documentation' as const;
   readonly name = 'DocumentationAgent';
-  readonly defaultModel: ModelId = 'anthropic.claude-sonnet-4-7';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-sonnet-4-6';
   readonly defaultTemperature = 0.2;
 
   constructor(private readonly bedrock: BedrockService) {}

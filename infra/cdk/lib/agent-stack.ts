@@ -132,13 +132,19 @@ export class AgentStack extends Stack {
     // Bedrock — InvokeModel on Anthropic Claude models. Wildcard model
     // arn (per-model arns differ per-region and Anthropic version
     // bumps).
+    //
+    // Region wildcard on the foundation-model arn is required because
+    // cross-region inference profiles (e.g. `us.anthropic.claude-…`)
+    // route invocations to whichever underlying region has capacity
+    // (`us-east-1`, `us-east-2`, `us-west-2`, …). Without the wildcard
+    // we'd get sporadic 403s when AWS load-balances across regions.
     taskRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'InvokeBedrockClaude',
         actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
         resources: [
-          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-*`,
-          `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`,
+          `arn:aws:bedrock:*::foundation-model/anthropic.claude-*`,
+          `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
         ],
       }),
     );

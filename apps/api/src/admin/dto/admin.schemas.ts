@@ -107,9 +107,9 @@ export const listAgentRunsQuerySchema = z.object({
 export type ListAgentRunsQuery = z.infer<typeof listAgentRunsQuerySchema>;
 
 export const modelIdValues = [
-  'anthropic.claude-sonnet-4-7',
-  'anthropic.claude-opus-4-7',
-  'anthropic.claude-haiku-4-5',
+  'us.anthropic.claude-sonnet-4-6',
+  'us.anthropic.claude-opus-4-7',
+  'us.anthropic.claude-haiku-4-5-20251001-v1:0',
 ] as const;
 
 export const dispatchAgentSchema = z.object({

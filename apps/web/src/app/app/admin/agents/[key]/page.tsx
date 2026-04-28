@@ -35,9 +35,9 @@ interface PromptRow {
 }
 
 const MODEL_OPTIONS = [
-  'anthropic.claude-sonnet-4-7',
-  'anthropic.claude-opus-4-7',
-  'anthropic.claude-haiku-4-5',
+  'us.anthropic.claude-sonnet-4-6',
+  'us.anthropic.claude-opus-4-7',
+  'us.anthropic.claude-haiku-4-5-20251001-v1:0',
 ] as const;
 type ModelId = (typeof MODEL_OPTIONS)[number];
 
@@ -90,7 +90,7 @@ export default function AdminAgentDetailPage({
       systemPrompt: v.systemPrompt,
       model: (MODEL_OPTIONS as readonly string[]).includes(v.model)
         ? (v.model as ModelId)
-        : 'anthropic.claude-sonnet-4-7',
+        : 'us.anthropic.claude-sonnet-4-6',
       temperature: v.temperature,
       note: '',
     });
@@ -99,7 +99,7 @@ export default function AdminAgentDetailPage({
     setDraftFromId(null);
     setDraft({
       systemPrompt: '',
-      model: 'anthropic.claude-sonnet-4-7',
+      model: 'us.anthropic.claude-sonnet-4-6',
       temperature: 0.2,
       note: '',
     });

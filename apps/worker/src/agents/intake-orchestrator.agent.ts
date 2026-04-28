@@ -135,7 +135,7 @@ export class IntakeOrchestratorAgent implements Agent {
 
   readonly id = 'intake_orchestrator' as const;
   readonly name = 'IntakeOrchestrator';
-  readonly defaultModel: ModelId = 'anthropic.claude-sonnet-4-7';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-sonnet-4-6';
   readonly defaultTemperature = 0.2;
 
   constructor(private readonly bedrock: BedrockService) {}

@@ -94,7 +94,7 @@ export class AnesthesiaClearanceAgent implements Agent {
 
   readonly id = 'anesthesia_clearance' as const;
   readonly name = 'AnesthesiaClearanceAgent';
-  readonly defaultModel: ModelId = 'anthropic.claude-opus-4-7';
+  readonly defaultModel: ModelId = 'us.anthropic.claude-opus-4-7';
   readonly defaultTemperature = 0.1;
 
   constructor(private readonly bedrock: BedrockService) {}
