@@ -222,6 +222,40 @@ export default function PatientHomePage() {
             )}
           </div>
         )}
+
+        {/* Day-of checklist tile — always reachable; surfaces a stronger
+            CTA in the last 48h before surgery. */}
+        <Link
+          href="/app/patient/day-of"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: dueIn != null && dueIn <= 2 ? '#4B6BEF' : '#f6f7fa',
+            color: dueIn != null && dueIn <= 2 ? '#fff' : '#1a1a1a',
+            borderRadius: 12,
+            padding: 14,
+            marginTop: 16,
+            textDecoration: 'none',
+            fontSize: 14,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 600 }}>Day-of checklist</div>
+            <div
+              style={{
+                fontSize: 12,
+                opacity: dueIn != null && dueIn <= 2 ? 0.9 : 0.65,
+                marginTop: 2,
+              }}
+            >
+              {dueIn != null && dueIn <= 2
+                ? `T-minus ${dueIn} day${dueIn === 1 ? '' : 's'} — what to do tomorrow`
+                : 'NPO, what to bring, who drives you home'}
+            </div>
+          </div>
+          <span style={{ fontSize: 20 }} aria-hidden="true">→</span>
+        </Link>
       </div>
     </PatientShell>
   );
