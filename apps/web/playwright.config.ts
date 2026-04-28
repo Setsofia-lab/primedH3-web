@@ -20,5 +20,10 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      // Mock auth path for E2E — no Cognito round-trips. Role picker
+      // at /role lets specs assume each role identity in one click.
+      NEXT_PUBLIC_DEV_AUTH: '1',
+    },
   },
 });
