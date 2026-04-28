@@ -51,13 +51,22 @@ export class AuthStack extends Stack {
     // Callback + logout URLs per env. Localhost is always allowed so
     // local dev can hit the hosted UI without a deploy. Vercel previews
     // + prod origin come from the domain plan (primed.ai M2).
+    //
+    // Vercel gives us TWO useful URL flavours for the staging branch:
+    //   - primedh3-git-staging-samsets-projects.vercel.app : stable
+    //     alias that always points at the latest staging deploy. THIS
+    //     is what testers should use during UT.
+    //   - primedh3-<hash>-samsets-projects.vercel.app : per-deploy
+    //     ephemeral preview URL. Cognito can't wildcard, so we don't
+    //     try to register these — we register the stable git-branch
+    //     alias instead.
     const webOrigins = isProd
       ? ['https://app.primed.ai', 'https://staging.primed.ai']
       : [
           'http://localhost:3000',
           'https://primedh3-web.vercel.app',
+          'https://primedh3-git-staging-samsets-projects.vercel.app',
           'https://staging.primed.ai',
-          // Add Vercel preview wildcard once we set up a branch-specific domain.
         ];
     // Next.js App Router route handlers live under /api — the web uses
     // /api/auth/callback for the token exchange and /auth/signed-out as
