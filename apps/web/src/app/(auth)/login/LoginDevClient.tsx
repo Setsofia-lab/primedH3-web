@@ -55,7 +55,7 @@ export default function LoginDevClient() {
 
         <div className="auth-form-inner anim-up">
           <span className="sandbox-pill">
-            <span className="dot" /> SANDBOX · phase 1 preview
+            <span className="dot" /> SANDBOX · no PHI
           </span>
           <h1>
             Sign in to your <span className="emph">workflow</span>.

@@ -4,13 +4,14 @@
  * Surgeon · case detail — real data, read-only for the surgeon.
  *
  * The api enforces visibility (surgeon_id == me) so a surgeon can't
- * load someone else's case here. All mutation lives on the admin
- * side for now; once M9 brings agents online we'll add surgeon-driven
- * actions (sign clearance, request consult, etc.).
+ * load someone else's case here. The agent activity card streams
+ * IntakeOrchestrator / RiskScreening / AnesthesiaClearance / etc.
+ * runs scoped to this case via /api/cases/:id/agent-runs.
  */
 import Link from 'next/link';
 import { useEffect, useState, use } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { AgentActivityCard } from '@/components/agents/AgentActivityCard';
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel';
 import { MessagesPanel } from '@/components/messages/MessagesPanel';
 import { TasksPanel } from '@/components/tasks/TasksPanel';
@@ -167,13 +168,8 @@ export default function SurgeonCaseDetailPage({ params }: { params: Promise<{ id
 
           <DocumentsPanel caseId={c.id} />
 
-          <div className="card" style={{ padding: '1.25rem' }}>
-            <div className="card-head" style={{ marginBottom: '0.5rem' }}><h3>Agent activity</h3></div>
-            <div className="muted" style={{ fontSize: 13 }}>
-              Once the worker (M9) ships, this will stream IntakeOrchestrator,
-              RiskScreening, AnesthesiaClearance, etc. activity for this case.
-            </div>
-          </div>
+          <AgentActivityCard source="case" caseId={c.id} title="Agent activity" />
+
         </div>
       </div>
     </AppShell>

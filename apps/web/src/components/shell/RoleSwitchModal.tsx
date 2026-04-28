@@ -54,7 +54,7 @@ export function RoleSwitchModal({ open, onClose }: Props) {
     >
       <div className="role-modal" role="dialog" aria-modal="true">
         <h2>Switch role</h2>
-        <p>Phase 1 sandbox — no real auth. Pick any identity to preview that surface.</p>
+        <p>Pick a role to preview that surface. Real auth is wired in production; this picker is a dev shortcut.</p>
         <div className="role-list">
           {OPTS.map((o) => (
             <button

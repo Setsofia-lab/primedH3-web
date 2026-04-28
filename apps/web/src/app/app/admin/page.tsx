@@ -1,12 +1,11 @@
 'use client';
 
 /**
- * Admin · Dashboard — KPIs from real data, plus an honest "agents
- * status" card that reflects M9 hasn't shipped.
+ * Admin · Dashboard — KPIs + live agent activity stream.
  */
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
-import { NotYetBuilt } from '@/components/shell/NotYetBuilt';
+import { AgentActivityCard } from '@/components/agents/AgentActivityCard';
 
 interface CaseRow { status: string; readinessScore: number | null; }
 interface User { firstName: string; lastName: string; }
@@ -96,18 +95,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div style={{ marginTop: 24 }}>
-        <NotYetBuilt
-          title="Live agent activity stream"
-          milestone="Phase 2 · M9"
-          description={
-            <>
-              Once the worker service ships, this card will stream agent runs
-              in real time — IntakeOrchestrator, RiskScreening, Readiness, etc.
-              For now, the data plumbing (cases, patients, users) is wired and
-              real; the AI layer is next.
-            </>
-          }
-        />
+        <AgentActivityCard source="admin" title="Live agent activity" limit={15} />
       </div>
     </AppShell>
   );

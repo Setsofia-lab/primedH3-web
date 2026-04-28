@@ -39,7 +39,7 @@ import { Roles } from '../auth/roles.decorator';
 import type { AuthContext } from '../auth/auth-context';
 import { IntakeOrchestratorService } from './intake-orchestrator.service';
 import { DB_CLIENT, type PrimedDb } from '../db/db.module';
-import { cases, patients, type Case, type User } from '../db/schema';
+import { agentRuns, cases, patients, type AgentRun, type Case, type User } from '../db/schema';
 import {
   createCaseSchema,
   listCasesQuerySchema,
@@ -179,6 +179,32 @@ export class CasesController {
       throw new NotFoundException(`case ${id} not found`);
     }
     return row;
+  }
+
+  @Get(':id/agent-runs')
+  @ApiOperation({
+    summary:
+      'List agent runs for a case (any role with case visibility — drives the case-detail Agent activity card).',
+  })
+  async runsForCase(
+    @CurrentUserRow() me: User,
+    @Param('id') id: string,
+    @Query('limit') limitRaw?: string,
+  ): Promise<{ items: readonly AgentRun[] }> {
+    // Verify case visibility before exposing run rows. Same 404-not-403
+    // convention as the case-get above.
+    const [c] = await this.db.select().from(cases).where(eq(cases.id, id)).limit(1);
+    if (!c || !this.canSee(me, c)) {
+      throw new NotFoundException(`case ${id} not found`);
+    }
+    const limit = Math.max(1, Math.min(100, Number.parseInt(limitRaw ?? '50', 10) || 50));
+    const items = await this.db
+      .select()
+      .from(agentRuns)
+      .where(eq(agentRuns.caseId, id))
+      .orderBy(desc(agentRuns.createdAt))
+      .limit(limit);
+    return { items };
   }
 
   // ----- scope helpers -----

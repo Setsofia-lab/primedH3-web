@@ -30,9 +30,9 @@ export default function CoordinatorMessagesPage() {
     setError(null);
     try {
       const [m, c, p] = await Promise.all([
-        jsonOrThrow<{ items: Message[] }>(await fetch('/api/messages?limit=500')),
-        jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?limit=500')),
-        jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=500')),
+        jsonOrThrow<{ items: Message[] }>(await fetch('/api/messages?limit=200')),
+        jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?limit=200')),
+        jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
       ]);
       setMessages(m.items);
       const cm = new Map<string, CaseRow>();

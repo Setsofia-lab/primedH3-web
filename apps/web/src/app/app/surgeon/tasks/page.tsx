@@ -50,7 +50,7 @@ export default function SurgeonTasksPage() {
       const [t, c, p] = await Promise.all([
         jsonOrThrow<{ items: Task[] }>(await fetch('/api/tasks?mine=true&limit=200')),
         jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?limit=200')),
-        jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=500')),
+        jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
       ]);
       setTasks(t.items);
       const cm = new Map<string, CaseRow>();
