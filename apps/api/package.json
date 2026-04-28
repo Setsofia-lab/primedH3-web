@@ -18,7 +18,8 @@
     "migrate:generate": "drizzle-kit generate",
     "migrate:run": "tsx src/db/migrate.ts",
     "openapi:emit": "tsx scripts/emit-openapi.ts",
-    "seed:agents": "tsx scripts/seed-agents.ts"
+    "seed:agents": "tsx scripts/seed-agents.ts",
+    "seed:cognito": "tsx scripts/seed-cognito-users.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1037.0",
