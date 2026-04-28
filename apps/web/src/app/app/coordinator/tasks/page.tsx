@@ -1,16 +1,21 @@
 'use client';
 
 /**
- * Coordinator · Tasks — real, cross-case task list (M7.5).
+ * Coordinator · Tasks — original M8 visual, fed by live data.
  *
- * Shows every workup task across the coordinator's facility (the api
- * scopes /tasks for non-admins by visible cases). Filterable by status
- * and assignee role; click-through to the case detail.
+ * Reads /api/tasks (server-scoped to the coordinator's visible cases),
+ * /api/cases for patient lookup, /api/patients for names, and
+ * /api/users for the assigned-to row. Whole row is clickable — click
+ * navigates to the parent case detail (/app/admin/cases/:id) so a
+ * coordinator can see the full chart, not just the task title.
+ *
+ * Filters mirror the original M8 segments: Open / AI-drafted / Overdue
+ * / Done. AI-drafted = created_by IS NULL (the worker agent has no
+ * user identity, so its inserts have null created_by).
  */
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
-import { Icon } from '@/components/shell/icons';
 
 type TaskStatus = 'pending' | 'in_progress' | 'done' | 'blocked';
 type TaskAssigneeRole =
@@ -20,42 +25,57 @@ interface Task {
   id: string;
   caseId: string;
   title: string;
+  description: string | null;
   status: TaskStatus;
   assigneeRole: TaskAssigneeRole;
   assigneeUserId: string | null;
   dueDate: string | null;
   createdAt: string;
+  createdBy: string | null;
 }
-interface CaseRow { id: string; patientId: string; }
-interface Patient { id: string; firstName: string; lastName: string; }
+interface CaseRow { id: string; patientId: string }
+interface Patient { id: string; firstName: string; lastName: string }
+interface User { id: string; firstName: string; lastName: string; role: string }
+
+type FilterKey = 'open' | 'ai' | 'overdue' | 'done';
+const FILTERS: Array<{ key: FilterKey; label: string }> = [
+  { key: 'open', label: 'Open' },
+  { key: 'ai', label: 'AI-drafted' },
+  { key: 'overdue', label: 'Overdue' },
+  { key: 'done', label: 'Done' },
+];
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   const text = await res.text();
   if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
   return JSON.parse(text) as T;
 }
-
-const STATUS_FILTERS: Array<{ s: 'all' | 'open' | TaskStatus; label: string }> = [
-  { s: 'open',        label: 'Open' },
-  { s: 'all',         label: 'All' },
-  { s: 'pending',     label: 'Pending' },
-  { s: 'in_progress', label: 'In progress' },
-  { s: 'blocked',     label: 'Blocked' },
-  { s: 'done',        label: 'Done' },
-];
-
-const ROLE_FILTERS: Array<'all' | TaskAssigneeRole> = [
-  'all', 'coordinator', 'surgeon', 'anesthesia', 'allied', 'patient',
-];
+function fmtDue(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const now = new Date();
+  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (same(d, now)) {
+    return `Today · ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+  }
+  const tomorrow = new Date(now.getTime() + 24 * 3600 * 1000);
+  if (same(d, tomorrow)) return 'Tomorrow';
+  const yesterday = new Date(now.getTime() - 24 * 3600 * 1000);
+  if (same(d, yesterday)) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function initialsFor(u: User | null | undefined): string {
+  if (!u) return '··';
+  return ((u.firstName[0] ?? '') + (u.lastName[0] ?? '')).toUpperCase() || '··';
+}
 
 export default function CoordinatorTasksPage() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [casesById, setCasesById] = useState<Map<string, CaseRow>>(new Map());
   const [patientsById, setPatientsById] = useState<Map<string, Patient>>(new Map());
+  const [usersById, setUsersById] = useState<Map<string, User>>(new Map());
+  const [filter, setFilter] = useState<FilterKey>('open');
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<'all' | 'open' | TaskStatus>('open');
-  const [role, setRole] = useState<'all' | TaskAssigneeRole>('all');
-  const [query, setQuery] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
@@ -67,41 +87,52 @@ export default function CoordinatorTasksPage() {
         jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
       ]);
       setTasks(t.items);
-      const cm = new Map<string, CaseRow>();
-      c.items.forEach((x) => cm.set(x.id, x));
-      setCasesById(cm);
-      const pm = new Map<string, Patient>();
-      p.items.forEach((x) => pm.set(x.id, x));
-      setPatientsById(pm);
+      setCasesById(new Map(c.items.map((x) => [x.id, x])));
+      setPatientsById(new Map(p.items.map((x) => [x.id, x])));
+      try {
+        const u = await jsonOrThrow<{ items: User[] }>(await fetch('/api/users?limit=200'));
+        setUsersById(new Map(u.items.map((x) => [x.id, x])));
+      } catch {
+        // 403 if endpoint not exposed — non-blocking
+      }
     } catch (e) {
       setError((e as Error).message);
     }
   }
-
   useEffect(() => { void load(); }, []);
+
+  const counts = useMemo(() => {
+    if (!tasks) return { open: 0, ai: 0, overdue: 0, done: 0 };
+    const now = Date.now();
+    return {
+      open: tasks.filter((t) => t.status !== 'done').length,
+      ai: tasks.filter((t) => t.createdBy == null).length,
+      overdue: tasks.filter((t) => t.status !== 'done' && t.dueDate != null && new Date(t.dueDate).getTime() < now).length,
+      done: tasks.filter((t) => t.status === 'done').length,
+    };
+  }, [tasks]);
 
   const rows = useMemo(() => {
     if (!tasks) return [];
-    const q = query.trim().toLowerCase();
+    const now = Date.now();
     return tasks.filter((t) => {
-      if (status === 'open') {
-        if (t.status === 'done') return false;
-      } else if (status !== 'all' && t.status !== status) return false;
-      if (role !== 'all' && t.assigneeRole !== role) return false;
-      if (!q) return true;
-      const c = casesById.get(t.caseId);
-      const p = c ? patientsById.get(c.patientId) : null;
-      return [t.title, p?.firstName, p?.lastName]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(q);
+      switch (filter) {
+        case 'open': return t.status !== 'done';
+        case 'ai': return t.createdBy == null;
+        case 'overdue': return t.status !== 'done' && t.dueDate != null && new Date(t.dueDate).getTime() < now;
+        case 'done': return t.status === 'done';
+      }
+    }).sort((a, b) => {
+      const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+      return aDue - bDue;
     });
-  }, [tasks, status, role, query, casesById, patientsById]);
+  }, [tasks, filter]);
 
-  async function setStatusFor(t: Task, next: TaskStatus) {
+  async function toggle(t: Task) {
     setBusyId(t.id);
     try {
+      const next = t.status === 'done' ? 'pending' : 'done';
       await jsonOrThrow(
         await fetch(`/api/tasks/${t.id}`, {
           method: 'PATCH',
@@ -122,7 +153,7 @@ export default function CoordinatorTasksPage() {
       <div className="page-head">
         <div>
           <span className="eyebrow">Coordinator · Tasks</span>
-          <h1>Workup &amp; <span className="emph">follow-ups</span>.</h1>
+          <h1>Your <span className="emph"><em>queue</em></span>.</h1>
         </div>
         <div className="page-actions">
           <button className="btn btn-outline-dark" onClick={() => void load()}>Refresh</button>
@@ -131,104 +162,80 @@ export default function CoordinatorTasksPage() {
 
       <div className="toolbar">
         <div className="seg">
-          {STATUS_FILTERS.map((f) => (
+          {FILTERS.map((f) => (
             <button
-              key={f.s}
+              key={f.key}
               type="button"
-              className={status === f.s ? 'active' : undefined}
-              onClick={() => setStatus(f.s)}
+              className={filter === f.key ? 'active' : undefined}
+              onClick={() => setFilter(f.key)}
             >
-              {f.label}
+              {f.label} · {counts[f.key]}
             </button>
           ))}
         </div>
-        <div className="mini-search">
-          <Icon name="search" size={14} />
-          <input
-            type="text"
-            placeholder="Search task or patient"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        <select
-          className="input"
-          value={role}
-          onChange={(e) => setRole(e.target.value as typeof role)}
-          style={{ width: 160 }}
-        >
-          {ROLE_FILTERS.map((r) => (
-            <option key={r} value={r}>{r === 'all' ? 'all roles' : r}</option>
-          ))}
-        </select>
         <div className="spacer" />
-        <span className="status-pill neutral">{rows.length} task{rows.length === 1 ? '' : 's'}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--ink-500)' }}>
+          Sort · due date
+        </span>
+      </div>
+
+      <div className="ai-banner">
+        <b>◆ AI-drafted tasks</b> auto-generated by agents when cases enter a new phase. You review,
+        assign, and sign off — agents don&apos;t act unilaterally.
       </div>
 
       {error && <div style={{ color: 'var(--danger, #c0392b)', margin: '12px 0' }}>{error}</div>}
 
       {!tasks ? (
-        <div className="muted">Loading…</div>
+        <div className="muted">Loading tasks…</div>
       ) : rows.length === 0 ? (
-        <div className="card"><div className="muted">No tasks match.</div></div>
+        <div className="card"><div className="muted">No tasks match this filter.</div></div>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Task</th>
-              <th>Patient</th>
-              <th>Role</th>
-              <th>Due</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((t) => {
-              const c = casesById.get(t.caseId);
-              const p = c ? patientsById.get(c.patientId) : null;
-              const overdue = t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date();
-              return (
-                <tr key={t.id}>
-                  <td>
-                    <div className="cell-primary">{t.title}</div>
-                    <div className="cell-sub">created {new Date(t.createdAt).toLocaleDateString()}</div>
-                  </td>
-                  <td>
-                    {c ? (
-                      <Link href={`/app/admin/cases/${c.id}`} style={{ textDecoration: 'underline' }}>
-                        {p ? `${p.firstName} ${p.lastName}` : c.id.slice(0, 8)}
-                      </Link>
-                    ) : <span className="muted">—</span>}
-                  </td>
-                  <td><span className={`role-pill role-${t.assigneeRole}`}>{t.assigneeRole}</span></td>
-                  <td style={{ color: overdue ? 'var(--danger, #c0392b)' : undefined }}>
-                    {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '—'}
-                  </td>
-                  <td><span className={`status-pill ${t.status}`}>{t.status}</span></td>
-                  <td>
-                    <select
-                      value={t.status}
-                      onChange={(e) => void setStatusFor(t, e.target.value as TaskStatus)}
-                      disabled={busyId === t.id}
-                      style={{
-                        fontSize: 12,
-                        padding: '4px 6px',
-                        border: '1px solid var(--border, #eaeaea)',
-                        borderRadius: 4,
-                      }}
-                    >
-                      <option value="pending">pending</option>
-                      <option value="in_progress">in progress</option>
-                      <option value="done">done</option>
-                      <option value="blocked">blocked</option>
-                    </select>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="task-list">
+          {rows.map((t) => {
+            const c = casesById.get(t.caseId);
+            const p = c ? patientsById.get(c.patientId) : null;
+            const assignee = t.assigneeUserId ? usersById.get(t.assigneeUserId) : null;
+            const overdue = t.status !== 'done' && t.dueDate != null && new Date(t.dueDate).getTime() < Date.now();
+            const ai = t.createdBy == null;
+            return (
+              <div className={`r${t.status === 'done' ? ' done' : ''}`} key={t.id}>
+                {/* Checkbox toggles status — wrapped in stopPropagation so the row link doesn't fire */}
+                <div
+                  className="cb"
+                  style={{ cursor: busyId === t.id ? 'wait' : 'pointer' }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); void toggle(t); }}
+                  role="button"
+                  aria-label={t.status === 'done' ? 'Reopen task' : 'Mark done'}
+                />
+                <Link
+                  href={c ? `/app/admin/cases/${c.id}` : '#'}
+                  className="lbl"
+                  style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                >
+                  <div>
+                    {t.title}
+                    {ai && <span className="ai" style={{ marginLeft: '0.375rem' }}>◆ AI-drafted</span>}
+                  </div>
+                  <div className="s">
+                    {p ? `${p.firstName} ${p.lastName}` : (c ? `Case ${c.id.slice(0, 8)}` : 'Unknown case')}
+                    {t.description ? ` · ${t.description.length > 100 ? `${t.description.slice(0, 100)}…` : t.description}` : ''}
+                  </div>
+                </Link>
+                <div className="as">
+                  <span className="av">{initialsFor(assignee)}</span>
+                  {assignee ? `${assignee.firstName} ${assignee.lastName.slice(0, 1)}.` : t.assigneeRole}
+                </div>
+                <div className={`due${overdue ? ' overdue' : ''}`}>{fmtDue(t.dueDate)}</div>
+                <div>
+                  <span className={`status-pill ${t.status === 'done' ? 'cleared' : overdue ? 'deferred' : t.status === 'blocked' ? 'cancelled' : 'pending'}`}>
+                    {t.status === 'done' ? 'done' : overdue ? 'overdue' : t.status === 'in_progress' ? 'in progress' : t.status}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </AppShell>
   );
