@@ -274,10 +274,14 @@ export class AgentStack extends Stack {
         DB_SECRET_ARN: props.aurora.secret?.secretArn ?? '',
         REDIS_HOST: props.redis.attrPrimaryEndPointAddress,
         REDIS_PORT: props.redis.attrPrimaryEndPointPort,
-        // Stub mode default-on until the operator enables Bedrock
-        // model access in the AWS console (one-time per account).
-        // Flip to 0 in prod once access is granted.
-        AWS_BEDROCK_DISABLED: isProd ? '0' : '1',
+        // Bedrock model access is now granted via AWS Marketplace
+        // agreements (Sonnet 4.6 + Opus 4.7 + Haiku 4.5 — agmts
+        // accepted 2026-04-28). Worker calls real models. The
+        // BedrockService still falls back to deterministic baseline
+        // outputs on AccessDeniedException / ResourceNotFoundException
+        // / ThrottlingException — so a transient Bedrock outage never
+        // blocks the agent loop.
+        AWS_BEDROCK_DISABLED: '0',
         BEDROCK_GUARDRAIL_ID: guardrail.attrGuardrailId,
         BEDROCK_GUARDRAIL_VERSION: guardrailVersion.attrVersion,
         // LangSmith — empty arn = tracing disabled (graceful no-op).

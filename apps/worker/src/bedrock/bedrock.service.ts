@@ -173,10 +173,23 @@ export class BedrockService {
         };
       } catch (err) {
         const e = err as { name?: string; message?: string };
-        if (e.name === 'AccessDeniedException' || e.name === 'ResourceNotFoundException') {
+        // All three of these are "Bedrock can't fulfill this right now"
+        // signals we want to surface as a stub fallback rather than
+        // failing the whole agent run:
+        //   - AccessDenied / ResourceNotFound: model access not enabled
+        //   - ValidationException: usually a model-id mistake
+        //   - Throttling: per-day or per-minute quota
+        // The agent run still completes, the run row marks usedStub=true,
+        // and LangSmith records the trace so the operator can see what
+        // would have happened.
+        if (
+          e.name === 'AccessDeniedException' ||
+          e.name === 'ResourceNotFoundException' ||
+          e.name === 'ValidationException' ||
+          e.name === 'ThrottlingException'
+        ) {
           this.logger.warn(
-            `Bedrock model ${req.model} not accessible (${e.name}) — falling back to stub. ` +
-              `Enable model access in the AWS console (Bedrock → Model access).`,
+            `Bedrock model ${req.model} unavailable (${e.name}: ${e.message ?? 'no message'}) — falling back to stub.`,
           );
           const stubResp = this.stub(req, e.name);
           return { ...stubResp, latencyMs: Date.now() - startedAt };
