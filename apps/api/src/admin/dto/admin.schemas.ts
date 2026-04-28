@@ -132,6 +132,17 @@ export const createPromptVersionSchema = z.object({
 });
 export type CreatePromptVersionInput = z.infer<typeof createPromptVersionSchema>;
 
+/**
+ * HITL approval body. Reviewers (anesthesia provider, surgeon, admin)
+ * flip a pending agent run to approved or declined; this stamps
+ * hitl_reviewer_id + hitl_reviewed_at and writes an audit event.
+ */
+export const hitlVerdictSchema = z.object({
+  verdict: z.enum(['approved', 'declined']),
+  note: z.string().max(4000).optional(),
+});
+export type HitlVerdictInput = z.infer<typeof hitlVerdictSchema>;
+
 // Documents -------------------------------------------------------
 
 export const documentKindValues = [

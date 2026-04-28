@@ -42,8 +42,10 @@ import {
 import { meta } from './audit-meta';
 import {
   createPromptVersionSchema,
+  hitlVerdictSchema,
   listAgentRunsQuerySchema,
   type CreatePromptVersionInput,
+  type HitlVerdictInput,
   type ListAgentRunsQuery,
 } from './dto/admin.schemas';
 import { ZodBodyPipe } from './zod-body.pipe';
@@ -191,6 +193,63 @@ export class AgentsAdminController {
       meta(req),
     );
     return activated;
+  }
+
+  /**
+   * HITL verdict on a single agent run. Any clinical role with case
+   * visibility may approve / decline; the @Roles override below
+   * relaxes the controller's admin-only default for THIS endpoint
+   * only. The surgeon and anesthesia case-cockpit "Approve / Defer"
+   * buttons call here.
+   *
+   * Side-effects:
+   *   - Stamps hitl_status, hitl_reviewer_id (=me.id), hitl_reviewed_at
+   *   - Writes an audit event for the verdict
+   *   - Re-dispatches the readiness agent so the case score recomputes
+   */
+  @Post('runs/:runId/hitl')
+  @Roles('admin', 'anesthesia', 'surgeon', 'coordinator')
+  @ApiOperation({ summary: 'Set HITL verdict (approved/declined) on an agent run' })
+  async setHitlVerdict(
+    @Param('runId') runId: string,
+    @Body(new ZodBodyPipe(hitlVerdictSchema)) input: HitlVerdictInput,
+    @CurrentUser() ctx: AuthContext,
+    @CurrentUserRow() me: User,
+    @Req() req: FastifyRequest,
+  ): Promise<AgentRun> {
+    const [row] = await this.db
+      .select()
+      .from(agentRuns)
+      .where(eq(agentRuns.id, runId))
+      .limit(1);
+    if (!row) throw new NotFoundException(`agent run ${runId} not found`);
+
+    const [updated] = await this.db
+      .update(agentRuns)
+      .set({
+        hitlStatus: input.verdict,
+        hitlReviewerId: me.id,
+        hitlReviewedAt: new Date(),
+        hitlNote: input.note ?? null,
+      })
+      .where(eq(agentRuns.id, runId))
+      .returning();
+    if (!updated) throw new Error('failed to update agent run');
+
+    await this.audit.record(
+      this.audit.fromContext(ctx, me),
+      {
+        action: 'sign',
+        resourceType: 'agent_run',
+        resourceId: runId,
+        targetFacilityId: row.facilityId,
+        before: { hitlStatus: row.hitlStatus },
+        after: { hitlStatus: updated.hitlStatus, agentKey: row.agentKey, note: input.note ?? null },
+      },
+      meta(req),
+    );
+
+    return updated;
   }
 
   private async findAgentByKey(key: string): Promise<Agent> {
