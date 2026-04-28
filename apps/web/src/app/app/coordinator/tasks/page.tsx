@@ -6,7 +6,7 @@
  * Reads /api/tasks (server-scoped to the coordinator's visible cases),
  * /api/cases for patient lookup, /api/patients for names, and
  * /api/users for the assigned-to row. Whole row is clickable — click
- * navigates to the parent case detail (/app/admin/cases/:id) so a
+ * navigates to the parent case detail (/app/coordinator/cases/:id) so a
  * coordinator can see the full chart, not just the task title.
  *
  * Filters mirror the original M8 segments: Open / AI-drafted / Overdue
@@ -209,7 +209,7 @@ export default function CoordinatorTasksPage() {
                   aria-label={t.status === 'done' ? 'Reopen task' : 'Mark done'}
                 />
                 <Link
-                  href={c ? `/app/admin/cases/${c.id}` : '#'}
+                  href={c ? `/app/coordinator/cases/${c.id}` : '#'}
                   className="lbl"
                   style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
                 >

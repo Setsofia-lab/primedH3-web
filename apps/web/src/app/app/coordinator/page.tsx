@@ -252,7 +252,7 @@ export default function CoordinatorBoardPage() {
                 <Link
                   key={c.id}
                   className="itm"
-                  href={`/app/admin/cases/${c.id}`}
+                  href={`/app/coordinator/cases/${c.id}`}
                   style={{ textDecoration: 'none', color: 'inherit' }}
                 >
                   <span className="av">{p ? initials(p.firstName, p.lastName) : '?'}</span>
@@ -324,7 +324,7 @@ export default function CoordinatorBoardPage() {
                     <Link
                       key={c.id}
                       className={`kcard${isStuck ? ' stuck' : ''}`}
-                      href={`/app/admin/cases/${c.id}`}
+                      href={`/app/coordinator/cases/${c.id}`}
                     >
                       <div className="top">
                         <span className="av">{p ? initials(p.firstName, p.lastName) : '?'}</span>
