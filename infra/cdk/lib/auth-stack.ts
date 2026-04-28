@@ -65,7 +65,7 @@ export class AuthStack extends Stack {
       : [
           'http://localhost:3000',
           'https://primedh3-web.vercel.app',
-          'https://primedh3-git-staging-samsets-projects.vercel.app',
+          'https://primedh3-web-git-staging-samsets-projects.vercel.app',
           'https://staging.primed.ai',
         ];
     // Next.js App Router route handlers live under /api — the web uses
