@@ -1,16 +1,36 @@
 'use client';
 
 /**
- * Surgeon · Schedule — calendar-style view of the current surgeon's
- * upcoming cases with surgery dates, grouped by week. Reads
- * /api/cases (server scopes to surgeon_id == me).
+ * Surgeon · Schedule — Phase-1 calendar grid restored.
+ *
+ *   page-head             ← Week / Week →
+ *   ai-banner             week range · room · cases scheduled
+ *   cal-grid              Time × Mon–Fri grid; each surgeryDate
+ *                         lands in the closest of 4 time rows.
+ *   stats-row             Next open block · This-week stats
+ *
+ * Data is real:
+ *   - /api/cases           role-scoped to surgeon_id == me on the api side
+ *   - /api/patients        used to label book cells with patient names
+ *
+ * Cells:
+ *   book  = a real case at this slot. Click to open the cockpit.
+ *   hold  = (visual reserved tile — surfaces if/when block-hold lands)
+ *   empty = open slot. Click "Assign a case" on the side panel to fill.
  */
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
 
 type CaseStatus =
-  | 'referral' | 'workup' | 'clearance' | 'pre_hab' | 'ready' | 'completed' | 'cancelled';
+  | 'referral'
+  | 'intake'
+  | 'workup'
+  | 'clearance'
+  | 'pre_op'
+  | 'surgery'
+  | 'completed'
+  | 'cancelled';
 
 interface CaseRow {
   id: string;
@@ -22,183 +42,372 @@ interface CaseRow {
   readinessScore: number | null;
 }
 
-interface Patient { id: string; firstName: string; lastName: string; dob: string | null }
-
-async function jsonOrThrow<T>(res: Response): Promise<T> {
-  const text = await res.text();
-  if (!res.ok) throw new Error(`${res.status}: ${text.slice(0, 200)}`);
-  return JSON.parse(text) as T;
+interface Patient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dob: string | null;
 }
 
-const STATUS_COLOR: Record<CaseStatus, string> = {
-  referral: '#6B7895',
-  workup: '#3B82F6',
-  clearance: '#F59E0B',
-  pre_hab: '#10B981',
-  ready: '#10B981',
-  completed: '#A3ADC4',
-  cancelled: '#A3ADC4',
-};
+async function jsonOrNull<T>(res: Response): Promise<T | null> {
+  if (!res.ok) return null;
+  return (await res.json()) as T;
+}
 
+/* Mon-anchored week start. */
 function startOfWeek(d: Date): Date {
   const out = new Date(d);
   const day = out.getDay();
-  const diff = (day + 6) % 7; // Mon as start
+  const diff = (day + 6) % 7;
   out.setDate(out.getDate() - diff);
   out.setHours(0, 0, 0, 0);
   return out;
 }
 
-function fmtWeekRange(start: Date): string {
-  const end = new Date(start.getTime() + 6 * 24 * 3600 * 1000);
-  const sameMonth = start.getMonth() === end.getMonth();
-  const left = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const right = end.toLocaleDateString('en-US', sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' });
-  return `${left} – ${right}`;
+function addDays(d: Date, n: number): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() + n);
+  return out;
+}
+
+function fmtDayHeader(d: Date): string {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+function fmtMonthDay(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/* Time rows match the original Phase-1 prototype. */
+const SLOTS: Array<{ label: string; hour: number; minute: number }> = [
+  { label: '7:30a', hour: 7, minute: 30 },
+  { label: '9:30a', hour: 9, minute: 30 },
+  { label: '12:00p', hour: 12, minute: 0 },
+  { label: '2:00p', hour: 14, minute: 0 },
+];
+
+/** Bucket a Date into the nearest SLOTS row. */
+function rowFor(d: Date): number {
+  const minutes = d.getHours() * 60 + d.getMinutes();
+  let best = 0;
+  let bestDelta = Infinity;
+  SLOTS.forEach((s, i) => {
+    const m = s.hour * 60 + s.minute;
+    const delta = Math.abs(m - minutes);
+    if (delta < bestDelta) {
+      best = i;
+      bestDelta = delta;
+    }
+  });
+  return best;
+}
+
+/** Default duration when a case has no explicit duration on it yet. */
+function durationFor(c: CaseRow): number {
+  // Heuristic: most knee/hip = 180min, hernia/lap = 90min, otherwise 90.
+  const proc = `${c.procedureCode ?? ''} ${c.procedureDescription ?? ''}`.toLowerCase();
+  if (/tka|knee|hip|tha/.test(proc)) return 180;
+  if (/cabg|spine|fusion/.test(proc)) return 240;
+  if (/thyroid|cole|hernia|lap/.test(proc)) return 90;
+  return 90;
 }
 
 export default function SurgeonSchedulePage() {
   const [cases, setCases] = useState<CaseRow[] | null>(null);
-  const [patients, setPatients] = useState<Map<string, Patient>>(new Map());
+  const [patientById, setPatientById] = useState<Map<string, Patient>>(new Map());
   const [error, setError] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0); // weeks from "this Monday"
 
   useEffect(() => {
     void (async () => {
       try {
         const [c, p] = await Promise.all([
-          jsonOrThrow<{ items: CaseRow[] }>(await fetch('/api/cases?limit=200')),
-          jsonOrThrow<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
+          jsonOrNull<{ items: CaseRow[] }>(await fetch('/api/cases?limit=200')),
+          jsonOrNull<{ items: Patient[] }>(await fetch('/api/patients?limit=200')),
         ]);
-        setCases(c.items);
-        setPatients(new Map(p.items.map((x) => [x.id, x])));
+        setCases(c?.items ?? []);
+        setPatientById(new Map((p?.items ?? []).map((x) => [x.id, x])));
       } catch (e) {
         setError((e as Error).message);
       }
     })();
   }, []);
 
-  const grouped = useMemo(() => {
-    if (!cases) return [];
-    const upcoming = cases
-      .filter((c) => c.surgeryDate && c.status !== 'completed' && c.status !== 'cancelled')
-      .sort((a, b) => new Date(a.surgeryDate!).getTime() - new Date(b.surgeryDate!).getTime());
+  const weekStart = useMemo(() => {
+    const ws = startOfWeek(new Date());
+    return addDays(ws, weekOffset * 7);
+  }, [weekOffset]);
 
-    const buckets = new Map<string, { weekStart: Date; rows: CaseRow[] }>();
-    for (const c of upcoming) {
-      const ws = startOfWeek(new Date(c.surgeryDate!));
-      const key = ws.toISOString();
-      const b = buckets.get(key) ?? { weekStart: ws, rows: [] };
-      b.rows.push(c);
-      buckets.set(key, b);
+  const days = useMemo(() => {
+    return Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  }, [weekStart]);
+
+  /* Build a 4×5 grid of either null (empty) or the case at that slot. */
+  const grid = useMemo(() => {
+    const g: Array<Array<CaseRow | null>> = SLOTS.map(() => Array(5).fill(null));
+    if (!cases) return g;
+    const weekEnd = addDays(weekStart, 5);
+    for (const c of cases) {
+      if (!c.surgeryDate) continue;
+      if (c.status === 'cancelled') continue;
+      const d = new Date(c.surgeryDate);
+      if (d < weekStart || d >= weekEnd) continue;
+      const dayIdx = Math.floor((d.getTime() - weekStart.getTime()) / (24 * 3600 * 1000));
+      if (dayIdx < 0 || dayIdx > 4) continue;
+      const row = rowFor(d);
+      // If two cases land in the same slot, the later-created wins.
+      g[row]![dayIdx] = c;
     }
-    return [...buckets.values()].sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime());
-  }, [cases]);
+    return g;
+  }, [cases, weekStart]);
 
-  const totalUpcoming = useMemo(() => grouped.reduce((n, g) => n + g.rows.length, 0), [grouped]);
+  const stats = useMemo(() => {
+    if (!cases) return { cases: 0, hours: 0, util: 0, cancels: 0 };
+    const weekEnd = addDays(weekStart, 7);
+    const inWeek = cases.filter(
+      (c) =>
+        c.surgeryDate &&
+        new Date(c.surgeryDate) >= weekStart &&
+        new Date(c.surgeryDate) < weekEnd,
+    );
+    const active = inWeek.filter((c) => c.status !== 'cancelled');
+    const hours = active.reduce((s, c) => s + durationFor(c), 0) / 60;
+    const cancels = inWeek.filter((c) => c.status === 'cancelled').length;
+    // Util = booked OR-hours / 9.5h block × 5 days = 47.5h
+    const util = Math.min(100, Math.round((hours / 47.5) * 100));
+    return { cases: active.length, hours, util, cancels };
+  }, [cases, weekStart]);
+
+  /* Find the first empty slot in the week-grid for "Next open block". */
+  const nextOpen = useMemo<{ day: Date; slot: (typeof SLOTS)[number] } | null>(() => {
+    let found: { day: Date; slot: (typeof SLOTS)[number] } | null = null;
+    SLOTS.forEach((slot, r) => {
+      const row = grid[r];
+      if (!row) return;
+      row.forEach((cell, d) => {
+        const day = days[d];
+        if (found || cell || !day) return;
+        found = { day, slot };
+      });
+    });
+    return found;
+  }, [grid, days]);
+
+  const weekRange = `${fmtMonthDay(weekStart)} — ${fmtMonthDay(addDays(weekStart, 4))}`;
 
   return (
     <AppShell breadcrumbs={['Surgeon', 'Schedule']}>
+      <style jsx>{`
+        .cal-grid {
+          display: grid;
+          grid-template-columns: 70px repeat(5, 1fr);
+          gap: 1px;
+          background: var(--border);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          overflow: hidden;
+        }
+        .cal-grid .h {
+          background: var(--surface-50, #fafafa);
+          padding: 0.625rem 0.875rem;
+          font-family: var(--font-mono);
+          font-size: 0.6875rem;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--ink-500);
+        }
+        .cal-grid .time {
+          background: var(--surface-50, #fafafa);
+          padding: 1rem 0.875rem;
+          font-family: var(--font-mono);
+          font-size: 0.75rem;
+          color: var(--ink-500);
+        }
+        .cal-grid .c {
+          background: #fff;
+          min-height: 88px;
+          padding: 0.625rem 0.75rem;
+          font-size: 0.8125rem;
+        }
+        .cal-grid .c.book {
+          background: var(--primary-blue-50, #eef1ff);
+          border-left: 3px solid var(--primary-blue);
+          color: var(--ink-900);
+          text-decoration: none;
+          display: block;
+          transition: filter 0.15s ease;
+        }
+        .cal-grid .c.book:hover {
+          filter: brightness(0.97);
+        }
+        .cal-grid .c.book .pt {
+          font-weight: 600;
+          margin-bottom: 2px;
+        }
+        .cal-grid .c.book .pr {
+          font-size: 0.75rem;
+          color: var(--ink-700);
+        }
+        .cal-grid .c.hold {
+          background: var(--surface-100);
+          color: var(--ink-500);
+          font-style: italic;
+        }
+        .stats-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+          margin-top: 1.5rem;
+        }
+        .stat-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+        }
+        .stat-lbl {
+          font-family: var(--font-mono);
+          font-size: 0.625rem;
+          color: var(--ink-500);
+          letter-spacing: 0.06em;
+        }
+        .stat-val {
+          font-family: var(--font-display, inherit);
+          font-size: 1.5rem;
+          font-feature-settings: 'ss01', 'cv11';
+        }
+      `}</style>
+
       <div className="page-head">
         <div>
           <span className="eyebrow">Surgeon · Schedule</span>
-          <h1>Your <span className="emph">upcoming cases</span>.</h1>
-          <p className="muted" style={{ marginTop: 6 }}>
-            {cases == null
-              ? 'Loading…'
-              : totalUpcoming === 0
-                ? 'No upcoming surgeries on file.'
-                : `${totalUpcoming} upcoming ${totalUpcoming === 1 ? 'case' : 'cases'}.`}
-          </p>
+          <h1>
+            OR <span className="emph">block</span>.
+          </h1>
         </div>
         <div className="page-actions">
-          <Link href="/app/surgeon/new" className="btn btn-primary">New case</Link>
+          <button
+            type="button"
+            className="btn btn-outline-dark"
+            onClick={() => setWeekOffset((w) => w - 1)}
+          >
+            ← Week
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-dark"
+            onClick={() => setWeekOffset((w) => w + 1)}
+          >
+            Week →
+          </button>
         </div>
       </div>
 
+      <div className="ai-banner">
+        <b>{weekRange}</b> · {stats.cases} {stats.cases === 1 ? 'case' : 'cases'} scheduled
+        {stats.cancels > 0 && `, ${stats.cancels} cancelled`}.
+      </div>
+
       {error && (
-        <div style={{ color: '#a61b1b', fontSize: 13, marginBottom: 12 }}>
-          Couldn&apos;t load schedule: {error}
-        </div>
+        <div style={{ color: 'var(--danger, #c0392b)', margin: '0 0 12px' }}>{error}</div>
       )}
 
-      {grouped.map(({ weekStart, rows }) => (
-        <section key={weekStart.toISOString()} style={{ marginBottom: 28 }}>
-          <h2
-            style={{
-              fontSize: 13,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: 'var(--ink-400, #6B7895)',
-              margin: '0 0 12px',
-            }}
-          >
-            Week of {fmtWeekRange(weekStart)}
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {rows.map((c) => {
-              const p = patients.get(c.patientId);
-              const sd = new Date(c.surgeryDate!);
+      <div className="cal-grid">
+        <div className="h">Time</div>
+        {days.map((d) => (
+          <div className="h" key={d.toISOString()}>{fmtDayHeader(d)}</div>
+        ))}
+
+        {SLOTS.map((slot, rowIdx) => (
+          <div key={slot.label} style={{ display: 'contents' }}>
+            <div className="time">{slot.label}</div>
+            {days.map((_, dayIdx) => {
+              const c = grid[rowIdx]![dayIdx];
+              if (!c) {
+                return <div className="c" key={dayIdx} />;
+              }
+              const p = patientById.get(c.patientId);
+              const name = p ? `${p.firstName} ${p.lastName}` : 'Patient';
+              const proc =
+                c.procedureDescription ??
+                c.procedureCode ??
+                'Procedure';
+              const dur = durationFor(c);
               return (
                 <Link
-                  key={c.id}
+                  key={dayIdx}
                   href={`/app/surgeon/cases/${c.id}`}
-                  className="card"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '110px 1fr auto',
-                    gap: 16,
-                    padding: '14px 16px',
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    alignItems: 'center',
-                  }}
+                  className="c book"
                 >
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-400, #6B7895)' }}>
-                      {sd.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
-                    </div>
-                    <div style={{ fontSize: 22, fontWeight: 500 }}>
-                      {sd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-400, #6B7895)' }}>
-                      {sd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 500 }}>
-                      {c.procedureDescription ?? c.procedureCode ?? 'Untitled procedure'}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-500, #4A5878)', marginTop: 2 }}>
-                      {p ? `${p.firstName} ${p.lastName}` : 'Unknown patient'}
-                      {p?.dob && ` · DOB ${new Date(p.dob).toLocaleDateString('en-US')}`}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        fontSize: 11,
-                        padding: '3px 10px',
-                        borderRadius: 999,
-                        background: 'var(--surface-100, #EEF1FA)',
-                        color: STATUS_COLOR[c.status],
-                        fontWeight: 500,
-                      }}
-                    >
-                      {c.status}
-                    </span>
-                    {c.readinessScore != null && (
-                      <div style={{ fontSize: 12, color: 'var(--ink-400, #6B7895)', marginTop: 4 }}>
-                        readiness {c.readinessScore}%
-                      </div>
-                    )}
+                  <div className="pt">{name}</div>
+                  <div className="pr">
+                    {proc} · {dur}min
                   </div>
                 </Link>
               );
             })}
           </div>
-        </section>
-      ))}
+        ))}
+      </div>
+
+      <div className="stats-row">
+        <div className="card">
+          <div className="card-head"><h3>Next open block</h3></div>
+          <div style={{ fontSize: '0.875rem', color: 'var(--ink-700)' }}>
+            {nextOpen ? (
+              <>
+                <b>
+                  {nextOpen.day.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                  {' · '}
+                  {nextOpen.slot.label}
+                </b>
+                <br />
+                <span style={{ color: 'var(--ink-500)' }}>
+                  Open slot · click an empty cell to assign
+                </span>
+                <br />
+                <Link
+                  href="/app/surgeon/new"
+                  className="btn btn-primary"
+                  style={{
+                    marginTop: '0.75rem',
+                    padding: '0.375rem 0.75rem',
+                    fontSize: '0.8125rem',
+                    display: 'inline-block',
+                  }}
+                >
+                  Assign a case
+                </Link>
+              </>
+            ) : (
+              <span className="muted">Week is fully booked.</span>
+            )}
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-head"><h3>This week</h3></div>
+          <div className="stat-grid">
+            <div>
+              <div className="stat-lbl">CASES</div>
+              <div className="stat-val">{stats.cases}</div>
+            </div>
+            <div>
+              <div className="stat-lbl">OR HOURS</div>
+              <div className="stat-val">{stats.hours.toFixed(1)}</div>
+            </div>
+            <div>
+              <div className="stat-lbl">UTIL</div>
+              <div className="stat-val">{stats.util}%</div>
+            </div>
+            <div>
+              <div className="stat-lbl">CANCELS</div>
+              <div className="stat-val">{stats.cancels}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </AppShell>
   );
 }
