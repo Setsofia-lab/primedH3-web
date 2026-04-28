@@ -274,6 +274,13 @@ export class ApiStack extends Stack {
         SERVICE_VERSION: image.imageTag,
         AWS_REGION: this.region,
         DB_SECRET_ARN: props.aurora.secret?.secretArn ?? '',
+        // Pool IDs are needed when SEED_DEMO_DATA=1 — the seed
+        // resolves Cognito subs by email so the demo `users` rows
+        // pre-link to the test accounts seed-cognito-users created.
+        COGNITO_REGION: this.region,
+        COGNITO_ADMINS_POOL_ID: props.cognitoAdmins.poolId,
+        COGNITO_PROVIDERS_POOL_ID: props.cognitoProviders.poolId,
+        COGNITO_PATIENTS_POOL_ID: props.cognitoPatients.poolId,
       },
       essential: true,
     });
