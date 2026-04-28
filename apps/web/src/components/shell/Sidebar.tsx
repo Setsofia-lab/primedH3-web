@@ -9,10 +9,6 @@ import { useNavCounts } from './use-nav-counts';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 import type { Role } from '@/types/session';
 
-interface SidebarProps {
-  onSwitchRole: () => void;
-}
-
 const ROLE_LABEL: Record<Exclude<Role, 'patient'>, string> = {
   admin: 'Health-center admin',
   surgeon: 'Surgeon',
@@ -27,7 +23,7 @@ function initialsFor(first: string, last: string): string {
   return (f + l || '?').toUpperCase();
 }
 
-export function Sidebar({ onSwitchRole }: SidebarProps) {
+export function Sidebar() {
   const liveUser = useCurrentUser();
   const session = useSessionStore((s) => s.session);
   const pathname = usePathname();
@@ -82,14 +78,14 @@ export function Sidebar({ onSwitchRole }: SidebarProps) {
           <div className="name">{display.name}</div>
           <div className="role">{display.roleLabel}</div>
         </div>
-        <button
+        <a
           className="switch"
-          aria-label="Switch role"
-          type="button"
-          onClick={onSwitchRole}
+          aria-label="Sign out"
+          title="Sign out"
+          href="/api/auth/signout"
         >
-          <Icon name="switch" size={14} />
-        </button>
+          <Icon name="signout" size={14} />
+        </a>
       </div>
     </aside>
   );

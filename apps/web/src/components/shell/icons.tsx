@@ -115,6 +115,13 @@ export function Icon({ name, size = 16 }: { name: IconKey; size?: number }) {
         <path d="M21 13v2a4 4 0 0 1-4 4H3" />
       </svg>
     );
+    case 'signout': return (
+      <svg {...props}>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </svg>
+    );
     case 'menu': return (
       <svg {...props}>
         <line x1="3" y1="12" x2="21" y2="12" />

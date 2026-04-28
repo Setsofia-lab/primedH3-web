@@ -7,7 +7,6 @@ import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { isDevAuthEnabled } from '@/lib/auth/cognito-config';
 import { Sidebar } from './Sidebar';
 import { Topbar, type TopbarProps } from './Topbar';
-import { RoleSwitchModal } from './RoleSwitchModal';
 
 interface AppShellProps extends TopbarProps {
   children: React.ReactNode;
@@ -31,7 +30,6 @@ export function AppShell({ children, breadcrumbs, search }: AppShellProps) {
   const liveUser = useCurrentUser();
   const session = useSessionStore((s) => s.session);
   const hydrated = useStoreHydrated();
-  const [switcherOpen, setSwitcherOpen] = useState(false);
   // null = haven't checked yet, true/false = decided
   const [authChecked, setAuthChecked] = useState<null | boolean>(null);
 
@@ -70,7 +68,7 @@ export function AppShell({ children, breadcrumbs, search }: AppShellProps) {
     return null;
   }
 
-  // Patient PWA has its own layout (no sidebar/topbar) — handled in M9.
+  // Patient PWA has its own layout (no sidebar/topbar).
   const role = liveUser?.role ?? session?.role;
   if (role === 'patient') {
     return <>{children}</>;
@@ -78,12 +76,11 @@ export function AppShell({ children, breadcrumbs, search }: AppShellProps) {
 
   return (
     <div className="app">
-      <Sidebar onSwitchRole={() => setSwitcherOpen(true)} />
+      <Sidebar />
       <div className="main">
         <Topbar breadcrumbs={breadcrumbs} search={search} />
         <div className="content">{children}</div>
       </div>
-      <RoleSwitchModal open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
     </div>
   );
 }

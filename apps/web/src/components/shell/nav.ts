@@ -3,7 +3,7 @@ import type { Role } from '@/types/session';
 export type IconKey =
   | 'grid' | 'folder' | 'users' | 'cpu' | 'scroll' | 'edit'
   | 'plus' | 'calendar' | 'message' | 'check' | 'alert' | 'book'
-  | 'columns' | 'building' | 'search' | 'bell' | 'help' | 'switch' | 'menu';
+  | 'columns' | 'building' | 'search' | 'bell' | 'help' | 'switch' | 'menu' | 'signout';
 
 export interface NavSection { section: string; }
 export interface NavItem {
