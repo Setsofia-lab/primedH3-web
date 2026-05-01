@@ -34,13 +34,28 @@ interface Patient {
   mrn: string | null;
 }
 
-const STATUS_FILTERS: Array<{ s: 'all' | CaseStatus; label: string }> = [
+/**
+ * Filter strip — "Pre-op" replaces both "Workup" and "Clearance" in
+ * the surgeon's mental model. Cases with status `workup` *or*
+ * `clearance` are surfaced under the single "Pre-op" pill below.
+ */
+const STATUS_FILTERS: Array<{ s: 'all' | CaseStatus | 'pre_op'; label: string }> = [
   { s: 'all',        label: 'All' },
   { s: 'referral',   label: 'Referral' },
-  { s: 'workup',     label: 'Workup' },
-  { s: 'clearance',  label: 'Clearance' },
+  { s: 'pre_op',     label: 'Pre-op' },
   { s: 'ready',      label: 'Ready' },
 ];
+
+/** Status label collapsed for the surgeon view. */
+function displayStatus(s: CaseStatus): string {
+  if (s === 'workup' || s === 'clearance') return 'pre-op';
+  return s;
+}
+/** Pill colour collapsed for the surgeon view. */
+function displayStatusClass(s: CaseStatus): string {
+  if (s === 'workup' || s === 'clearance') return 'workup';
+  return s;
+}
 
 async function jsonOrThrow<T>(res: Response): Promise<T> {
   const text = await res.text();
@@ -65,7 +80,7 @@ export default function SurgeonCasesPage() {
   const [cases, setCases] = useState<CaseRow[] | null>(null);
   const [patients, setPatients] = useState<Map<string, Patient>>(new Map());
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<'all' | CaseStatus>('all');
+  const [status, setStatus] = useState<'all' | CaseStatus | 'pre_op'>('all');
   const [query, setQuery] = useState('');
 
   async function load() {
@@ -90,7 +105,11 @@ export default function SurgeonCasesPage() {
     if (!cases) return [];
     const q = query.trim().toLowerCase();
     return cases.filter((c) => {
-      if (status !== 'all' && c.status !== status) return false;
+      if (status === 'pre_op') {
+        if (c.status !== 'workup' && c.status !== 'clearance') return false;
+      } else if (status !== 'all' && c.status !== status) {
+        return false;
+      }
       if (!q) return true;
       const p = patients.get(c.patientId);
       const text = [
@@ -206,7 +225,7 @@ export default function SurgeonCasesPage() {
                       <span className="muted">—</span>
                     )}
                   </td>
-                  <td><span className={`status-pill ${c.status}`}>{c.status}</span></td>
+                  <td><span className={`status-pill ${displayStatusClass(c.status)}`}>{displayStatus(c.status)}</span></td>
                 </tr>
               );
             })}

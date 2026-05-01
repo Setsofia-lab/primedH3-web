@@ -280,10 +280,10 @@ export function CaseCockpit({ role, caseId, backHref, backLabel }: Props) {
 
       <div className="tab-strip">
         <button type="button" className={tab === 'overview' ? 'active' : undefined} onClick={() => setTab('overview')}>Overview</button>
-        <button type="button" className={tab === 'hp' ? 'active' : undefined} onClick={() => setTab('hp')}>H&amp;P <span className="b">AI</span></button>
-        <button type="button" className={tab === 'plan' ? 'active' : undefined} onClick={() => setTab('plan')}>Plan <span className="b">AI</span></button>
+        <button type="button" className={tab === 'hp' ? 'active' : undefined} onClick={() => setTab('hp')}>H&amp;P</button>
+        <button type="button" className={tab === 'plan' ? 'active' : undefined} onClick={() => setTab('plan')}>Pre-op</button>
         <button type="button" className={tab === 'workup' ? 'active' : undefined} onClick={() => setTab('workup')}>
-          Workup<span className="b">{tasks.length}</span>
+          Tasks<span className="b">{tasks.length}</span>
         </button>
         <button type="button" className={tab === 'notes' ? 'active' : undefined} onClick={() => setTab('notes')}>Notes</button>
         <button type="button" className={tab === 'edit' ? 'active' : undefined} onClick={() => setTab('edit')}>Edit</button>
@@ -357,29 +357,41 @@ export function CaseCockpit({ role, caseId, backHref, backLabel }: Props) {
       )}
 
       {tab === 'hp' && (
-        <section className="tab-pane active">
+        <section className="tab-pane active" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <AiDraftCard
             label="History &amp; physical"
+            byline="AI-drafted"
             run={latestDoc}
             renderBody={(o) => <DocumentBody output={o} fallbackPatient={patientName} fallbackProcedure={c.procedureDescription ?? '—'} />}
             primaryLabel="Sign H&P"
             onPrimary={() => { /* signature endpoint TBD */ }}
             onRedraft={() => void dispatchAgent('documentation')}
-            citations="Guidelines: ACC/AHA · NSQIP · ACS"
+          />
+          <SurgeonAuthoredCard
+            caseId={c.id}
+            kind="hp"
+            label="History &amp; physical"
+            placeholder="Type your H&P here. The AI draft above is independent — your version is what gets signed."
           />
         </section>
       )}
 
       {tab === 'plan' && (
-        <section className="tab-pane active">
+        <section className="tab-pane active" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <AiDraftCard
-            label="Procedure plan"
+            label="Pre-op plan"
+            byline="AI-drafted"
             run={latestIntake}
             renderBody={(o) => <PlanBody output={o} risk={latestRisk?.outputJson} anesthesia={latestAnesthesia?.outputJson} procedure={c.procedureDescription ?? '—'} cpt={c.procedureCode} />}
             primaryLabel="Approve plan"
             onPrimary={() => { /* signature endpoint TBD */ }}
             onRedraft={() => void dispatchAgent('intake_orchestrator')}
-            citations="NSQIP risk calculator · CPT-aligned"
+          />
+          <SurgeonAuthoredCard
+            caseId={c.id}
+            kind="plan"
+            label="Surgeon-edited plan"
+            placeholder="Edit the AI plan or write your own. The version saved here is what your team executes."
           />
         </section>
       )}
@@ -388,7 +400,7 @@ export function CaseCockpit({ role, caseId, backHref, backLabel }: Props) {
         <section className="tab-pane active">
           <div className="card">
             <div className="card-head">
-              <h3>Workup tasks</h3>
+              <h3>Tasks</h3>
               <span className="status-pill neutral">{doneCount} of {tasks.length} complete</span>
             </div>
             <TasksPanel caseId={c.id} canCreate />
@@ -488,19 +500,20 @@ export function CaseCockpit({ role, caseId, backHref, backLabel }: Props) {
 
 interface AiDraftCardProps {
   label: string;
+  /** Header eyebrow, e.g. "AI-drafted". */
+  byline?: string;
   run: AgentRun | null;
   renderBody: (output: unknown) => React.ReactNode;
   primaryLabel: string;
   onPrimary: () => void;
   onRedraft: () => void;
-  citations: string;
 }
 
-function AiDraftCard({ label, run, renderBody, primaryLabel, onPrimary, onRedraft, citations }: AiDraftCardProps) {
+function AiDraftCard({ label, byline = 'AI-drafted · review before signing', run, renderBody, primaryLabel, onPrimary, onRedraft }: AiDraftCardProps) {
   return (
     <div className="ai-draft">
       <div className="dh">
-        <span>AI-DRAFTED · REVIEW BEFORE SIGNING</span>
+        <span>{byline.toUpperCase()}</span>
         <span className="sp" />
         <span className="agent">
           {run ? `from ${run.agentKey} run · ${new Date(run.createdAt).toLocaleString()}` : 'no draft yet — click "Re-draft" to generate'}
@@ -514,9 +527,7 @@ function AiDraftCard({ label, run, renderBody, primaryLabel, onPrimary, onRedraf
           </p>
         )}
       </div>
-      <div className="df">
-        <span className="cite">{citations}</span>
-        <span className="spacer" />
+      <div className="df" style={{ justifyContent: 'flex-end' }}>
         <button className="btn btn-ghost" style={{ padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }} onClick={onRedraft}>
           Re-draft
         </button>
@@ -527,6 +538,107 @@ function AiDraftCard({ label, run, renderBody, primaryLabel, onPrimary, onRedraf
           disabled={!run}
         >
           {primaryLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SurgeonAuthoredCard — surgeon-typed counterpart to the AI-drafted
+ * cards on the H&P + Pre-op tabs. Persists to localStorage keyed by
+ * (caseId, kind) so the surgeon can edit and revisit. Clearly labelled
+ * "Surgeon-authored" to distinguish from agent output. Server
+ * persistence will swap this storage layer out without touching the
+ * surface — see SAVE_KEY below.
+ */
+interface SurgeonAuthoredCardProps {
+  caseId: string;
+  kind: 'hp' | 'plan';
+  label: string;
+  placeholder: string;
+}
+function SurgeonAuthoredCard({ caseId, kind, label, placeholder }: SurgeonAuthoredCardProps) {
+  const SAVE_KEY = `primed:case:${caseId}:${kind}`;
+  const [text, setText] = useState('');
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { text: string; at: string };
+        setText(parsed.text ?? '');
+        setSavedAt(parsed.at ?? null);
+      }
+    } catch {
+      // ignore corrupted entry
+    }
+    setHydrated(true);
+  }, [SAVE_KEY]);
+
+  function save() {
+    const at = new Date().toISOString();
+    try {
+      window.localStorage.setItem(SAVE_KEY, JSON.stringify({ text, at }));
+      setSavedAt(at);
+      setDirty(false);
+    } catch {
+      // localStorage may be unavailable (Safari private mode). No-op.
+    }
+  }
+
+  return (
+    <div className="ai-draft" style={{ borderColor: 'var(--ink-300, #c5cdda)' }}>
+      <div className="dh" style={{ background: '#fff7e6', color: '#a16207' }}>
+        <span>SURGEON-AUTHORED</span>
+        <span className="sp" />
+        <span className="agent" style={{ color: '#a16207' }}>
+          {savedAt
+            ? `last saved ${new Date(savedAt).toLocaleString()}`
+            : 'unsaved'}
+        </span>
+      </div>
+      <div className="db">
+        <h4 style={{ marginTop: 0 }}>{label}</h4>
+        <textarea
+          value={text}
+          onChange={(e) => { setText(e.target.value); setDirty(true); }}
+          placeholder={placeholder}
+          rows={8}
+          style={{
+            width: '100%',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            padding: '0.625rem 0.75rem',
+            fontFamily: 'inherit',
+            fontSize: '0.875rem',
+            lineHeight: 1.5,
+            color: 'var(--ink-900)',
+            background: '#fff',
+            resize: 'vertical',
+            minHeight: 140,
+          }}
+          disabled={!hydrated}
+        />
+      </div>
+      <div className="df" style={{ justifyContent: 'flex-end' }}>
+        {dirty && (
+          <span style={{ color: 'var(--ink-500)', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem' }}>
+            unsaved changes
+          </span>
+        )}
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ padding: '0.375rem 0.875rem', fontSize: '0.8125rem' }}
+          onClick={save}
+          disabled={!dirty || !hydrated}
+        >
+          Save
         </button>
       </div>
     </div>

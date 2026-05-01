@@ -57,6 +57,16 @@ export function TasksPanel({ caseId, canCreate = true }: Props) {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // New-task form state
   const [title, setTitle] = useState('');
@@ -126,7 +136,7 @@ export function TasksPanel({ caseId, canCreate = true }: Props) {
   return (
     <div className="card">
       <div className="card-head">
-        <h3>Workup tasks</h3>
+        <h3>Tasks</h3>
         {tasks && (
           <span className="status-pill neutral">
             {tasks.filter((t) => t.status === 'done').length}/{tasks.length} done
@@ -147,83 +157,189 @@ export function TasksPanel({ caseId, canCreate = true }: Props) {
           {tasks.map((t) => {
             const overdue = t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date();
             const isDone = t.status === 'done';
+            const isExpanded = expandedIds.has(t.id);
             return (
               <div
                 key={t.id}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '10px 12px',
                   background: 'var(--surface-50, #fafafa)',
                   border: '1px solid var(--border, #eaeaea)',
                   borderRadius: 8,
-                  opacity: isDone ? 0.65 : 1,
+                  opacity: isDone ? 0.7 : 1,
+                  overflow: 'hidden',
                 }}
               >
-                <button
-                  type="button"
-                  aria-label={isDone ? 'Reopen' : 'Mark done'}
-                  onClick={() => void setStatus(t, isDone ? 'pending' : 'done')}
-                  disabled={busyId === t.id}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 6,
-                    border: '1.5px solid var(--ink-300, #c5cdda)',
-                    background: isDone ? 'var(--accent, #4a4ee6)' : '#fff',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14,
-                    flexShrink: 0,
-                  }}
-                >
-                  {isDone ? '✓' : ''}
-                </button>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
+                {/* Row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px' }}>
+                  <button
+                    type="button"
+                    aria-label={isDone ? 'Reopen' : 'Mark done'}
+                    onClick={(e) => { e.stopPropagation(); void setStatus(t, isDone ? 'pending' : 'done'); }}
+                    disabled={busyId === t.id}
                     style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 6,
+                      border: '1.5px solid var(--ink-300, #c5cdda)',
+                      background: isDone ? 'var(--accent, #4a4ee6)' : '#fff',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       fontSize: 14,
-                      fontWeight: 500,
-                      textDecoration: isDone ? 'line-through' : 'none',
+                      flexShrink: 0,
                     }}
                   >
-                    {t.title}
-                  </div>
-                  <div className="muted" style={{ fontSize: 12, display: 'flex', gap: 8 }}>
-                    <span className={`role-pill role-${t.assigneeRole}`} style={{ fontSize: 11 }}>
-                      {t.assigneeRole}
+                    {isDone ? '✓' : ''}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(t.id)}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      background: 'transparent',
+                      border: 'none',
+                      padding: 0,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      font: 'inherit',
+                      color: 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      style={{
+                        display: 'inline-block',
+                        transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.15s ease',
+                        color: 'var(--ink-500)',
+                        fontSize: 11,
+                        flexShrink: 0,
+                        width: 12,
+                      }}
+                    >▶</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 500,
+                          textDecoration: isDone ? 'line-through' : 'none',
+                        }}
+                      >
+                        {t.title}
+                      </div>
+                      <div className="muted" style={{ fontSize: 12, display: 'flex', gap: 8, marginTop: 2 }}>
+                        <span className={`role-pill role-${t.assigneeRole}`} style={{ fontSize: 11 }}>
+                          {t.assigneeRole}
+                        </span>
+                        {t.dueDate && (
+                          <span style={{ color: overdue ? 'var(--danger, #c0392b)' : undefined }}>
+                            due {new Date(t.dueDate).toLocaleDateString()}
+                          </span>
+                        )}
+                        <span className={`status-pill ${t.status}`} style={{ fontSize: 11 }}>
+                          {t.status}
+                        </span>
+                      </div>
                     </span>
-                    {t.dueDate && (
-                      <span style={{ color: overdue ? 'var(--danger, #c0392b)' : undefined }}>
-                        due {new Date(t.dueDate).toLocaleDateString()}
-                      </span>
-                    )}
-                    <span className={`status-pill ${t.status}`} style={{ fontSize: 11 }}>
-                      {t.status}
-                    </span>
-                  </div>
+                  </button>
+                  <select
+                    value={t.status}
+                    onChange={(e) => void setStatus(t, e.target.value as TaskStatus)}
+                    disabled={busyId === t.id}
+                    style={{
+                      fontSize: 12,
+                      padding: '4px 6px',
+                      border: '1px solid var(--border, #eaeaea)',
+                      borderRadius: 4,
+                      background: '#fff',
+                    }}
+                  >
+                    <option value="pending">pending</option>
+                    <option value="in_progress">in progress</option>
+                    <option value="done">done</option>
+                    <option value="blocked">blocked</option>
+                  </select>
                 </div>
-                <select
-                  value={t.status}
-                  onChange={(e) => void setStatus(t, e.target.value as TaskStatus)}
-                  disabled={busyId === t.id}
-                  style={{
-                    fontSize: 12,
-                    padding: '4px 6px',
-                    border: '1px solid var(--border, #eaeaea)',
-                    borderRadius: 4,
-                    background: '#fff',
-                  }}
-                >
-                  <option value="pending">pending</option>
-                  <option value="in_progress">in progress</option>
-                  <option value="done">done</option>
-                  <option value="blocked">blocked</option>
-                </select>
+
+                {/* Expanded details */}
+                {isExpanded && (
+                  <div
+                    style={{
+                      borderTop: '1px solid var(--border, #eaeaea)',
+                      background: '#fff',
+                      padding: '12px 14px 14px 46px',
+                      fontSize: 13,
+                      color: 'var(--ink-700)',
+                      display: 'grid',
+                      gridTemplateColumns: '120px 1fr',
+                      gap: '6px 12px',
+                    }}
+                  >
+                    <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      Description
+                    </span>
+                    <span style={{ whiteSpace: 'pre-wrap' }}>
+                      {t.description?.trim() || <em style={{ color: 'var(--ink-500)' }}>—</em>}
+                    </span>
+
+                    <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      Assignee role
+                    </span>
+                    <span>{t.assigneeRole}</span>
+
+                    <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      Assigned user
+                    </span>
+                    <span>
+                      {t.assigneeUserId ? (
+                        <code style={{ fontSize: 12 }}>{t.assigneeUserId.slice(0, 8)}…</code>
+                      ) : (
+                        <em style={{ color: 'var(--ink-500)' }}>unassigned</em>
+                      )}
+                    </span>
+
+                    <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      Due date
+                    </span>
+                    <span>
+                      {t.dueDate
+                        ? new Date(t.dueDate).toLocaleString()
+                        : <em style={{ color: 'var(--ink-500)' }}>none</em>}
+                    </span>
+
+                    <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      Created
+                    </span>
+                    <span>{new Date(t.createdAt).toLocaleString()}</span>
+
+                    {t.completedAt && (
+                      <>
+                        <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          Completed
+                        </span>
+                        <span>
+                          {new Date(t.completedAt).toLocaleString()}
+                          {t.completedBy && (
+                            <> · by <code style={{ fontSize: 12 }}>{t.completedBy.slice(0, 8)}…</code></>
+                          )}
+                        </span>
+                      </>
+                    )}
+
+                    <span className="muted" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      Task id
+                    </span>
+                    <span><code style={{ fontSize: 12 }}>{t.id}</code></span>
+                  </div>
+                )}
               </div>
             );
           })}

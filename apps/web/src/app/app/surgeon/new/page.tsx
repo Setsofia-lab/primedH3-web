@@ -205,6 +205,13 @@ export default function SurgeonNewCasePage() {
         </div>
       </div>
 
+      <div className="ai-banner" style={{ marginBottom: '1rem' }}>
+        <b>Patients enter the system via the coordinator</b> — the coordinator
+        imports them from Athena. Pick a patient who&apos;s already mirrored
+        below; if they&apos;re not there yet, ask the coordinator to hydrate
+        them on the Athena page first.
+      </div>
+
       <div className="stepper">
         {steps.map((s) => (
           <div
@@ -230,15 +237,10 @@ export default function SurgeonNewCasePage() {
               <div className="muted">Loading patients…</div>
             ) : facilityScopedPatients.length === 0 ? (
               <div className="muted">
-                No patients are mirrored at your facility yet. Ask an admin to
-                hydrate one from the{' '}
-                <Link
-                  href="/app/admin/athena"
-                  style={{ textDecoration: 'underline' }}
-                >
-                  Athena page
-                </Link>
-                , or invite a patient on the admin Users page.
+                No patients are mirrored at your facility yet. Ask the
+                coordinator to hydrate one from Athena — patients enter the
+                system through coordinator workflows, not directly from the
+                surgeon side.
               </div>
             ) : (
               <>

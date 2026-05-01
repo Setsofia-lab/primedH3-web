@@ -43,7 +43,6 @@ export const NAV: Record<Exclude<Role, 'patient'>, NavEntry[]> = {
     { href: '/app/surgeon/schedule', label: 'Schedule',  icon: 'calendar', key: 'schedule' },
     { section: 'Inbox' },
     { href: '/app/surgeon/messages', label: 'Messages',  icon: 'message',  key: 'messages' },
-    { href: '/app/surgeon/tasks',    label: 'Sign-offs', icon: 'check',    key: 'tasks' },
   ],
   anesthesia: [
     { section: 'Clearance' },
